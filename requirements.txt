@@ -1,2 +1,4 @@
+selenium
+requests
 google-cloud-bigquery
 openpyxl

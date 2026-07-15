@@ -21,11 +21,16 @@ jobs:
         with:
           python-version: '3.9'
 
-      # 3. ติดตั้ง Library ต่าง ๆ ตามที่ระบุไว้ในไฟล์ requirements.txt
-      - name: Install dependencies
+      # 3. ติดตั้ง Chrome Browser และ Library จาก requirements.txt (จุดที่แก้ไขเพิ่มเติ่ม)
+      - name: Install Chrome and dependencies
         run: |
+          # 🌐 ติดตั้ง Chrome Browser ลงบนเครื่อง Ubuntu ของ GitHub Actions เพื่อให้ Selenium เรียกใช้ได้
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          
+          # 🐍 อัปเดต pip และติดตั้ง Selenium + BigQuery จากไฟล์ของคุณ
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       # 4. ดึง JSON Key จาก GitHub Secrets มายืนยันตัวตนกับ Google Cloud
       - name: Authenticate to Google Cloud
