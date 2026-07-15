@@ -32,9 +32,9 @@ table_id = "ชื่อ-gcp-project-ของคุณ.ชื่อ_dataset_ข
 
 # ตั้งค่าการโหลดไฟล์
 job_config = bigquery.LoadJobConfig(
-    source_format=bigquery.SourceFormat.EXCEL, # กำหนดเป็น EXCEL (หรือเปลี่ยนเป็น CSV ถ้าไฟล์จริงเป็น .csv)
-    autodetect=True,                           # ให้ BigQuery เดาประเภทข้อมูล (Schema) ให้เอง
-    write_disposition="WRITE_APPEND",          # "WRITE_APPEND" = เพิ่มต่อท้ายทุกวัน | "WRITE_TRUNCATE" = ลบของเก่าแล้วเขียนทับใหม่หมด
+    source_format="EXCEL",            # กำหนดเป็นสตริง "EXCEL" เพื่อป้องกันการหาแอตทริบิวต์ไม่เจอ
+    autodetect=True,                  # ให้ BigQuery เดาประเภทข้อมูล (Schema) ให้เอง
+    write_disposition="WRITE_APPEND", # "WRITE_APPEND" = เพิ่มต่อท้ายทุกวัน | "WRITE_TRUNCATE" = ลบของเก่าแล้วเขียนทับใหม่หมด
 )
 
 print(f"กำลังอัปโหลดไฟล์ {file_path} เข้า BigQuery...")
