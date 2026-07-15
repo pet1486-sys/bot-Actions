@@ -21,15 +21,18 @@ jobs:
         with:
           python-version: '3.9'
 
-      # 3. ติดตั้ง Chrome Browser และ Library จาก requirements.txt (จุดที่แก้ไขเพิ่มเติ่ม)
+      # 3. ติดตั้ง Chrome Browser และ Library พร้อมอัปเดตเวอร์ชันล่าสุด (จุดแก้ไขป้องกันบั๊กคลาสเก่า)
       - name: Install Chrome and dependencies
         run: |
-          # 🌐 ติดตั้ง Chrome Browser ลงบนเครื่อง Ubuntu ของ GitHub Actions เพื่อให้ Selenium เรียกใช้ได้
+          # 🌐 ติดตั้ง Chrome Browser สำหรับ Selenium
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
           
-          # 🐍 อัปเดต pip และติดตั้ง Selenium + BigQuery จากไฟล์ของคุณ
+          # 🐍 อัปเดตเครื่องมือติดตั้งและสั่งอัปเกรด google-cloud-bigquery ให้เป็นตัวใหม่ล่าสุด
           python -m pip install --upgrade pip
+          python -m pip install --upgrade google-cloud-bigquery
+          
+          # ติดตั้ง library อื่นๆ ที่มีในไฟล์ของคุณเพิ่มเติม
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       # 4. ดึง JSON Key จาก GitHub Secrets มายืนยันตัวตนกับ Google Cloud

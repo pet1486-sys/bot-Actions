@@ -145,9 +145,9 @@ client = bigquery.Client()
 
 table_id = "northern-eon-470602-a2.stock_data.sku_list"
 
-# ใช้คลาสบิ้วต์อินล็อกสเปกประเภทไฟล์ให้ BigQuery ปลายทางรับรู้ว่าเป็น Excel แน่นอน ไม่โดนแปลงเป็น CSV
+# ปรับใช้เป็นข้อความสตริง "EXCEL" เปล่าๆ ป้องกัน Attribute Error
 job_config = bigquery.LoadJobConfig(
-    source_format=bigquery.SourceFormat.EXCEL, 
+    source_format="EXCEL", 
     autodetect=True,                  
     write_disposition="WRITE_APPEND", 
 )
