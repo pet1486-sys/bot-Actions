@@ -7,38 +7,37 @@ from google.cloud import bigquery
 sys.stdout.reconfigure(line_buffering=True)
 
 # ==========================================================
-# ส่วนที่ 1: โค้ดดึงไฟล์และสร้างโฟลเดอร์ (รวมจากไฟล์เดิมของคุณ)
+# ส่วนที่ 1: โค้ดดึงไฟล์และสร้างโฟลเดอร์
 # ==========================================================
 print("กำลังเริ่มดาวน์โหลดไฟล์จากเว็บไซต์...")
 
 # สร้างโฟลเดอร์สำหรับเก็บไฟล์ชั่วคราว
-os.makedirs('stock_data', exist_ok=True)[cite: 1]
-file_path = 'stock_data/SKU.xlsx'[cite: 1]
+os.makedirs('stock_data', exist_ok=True)
+file_path = 'stock_data/SKU.xlsx'
 
-# --- โค้ดส่วนดึงข้อมูลของคุณ (ดึงไฟล์มาเซฟเป็น SKU.xlsx) ---
-# บรรทัดด้านล่างนี้คือตัวอย่างการดึงไฟล์จริง ให้เปลี่ยน URL เป็นลิงก์เว็บที่คุณต้องการดึงข้อมูลครับ
+# 🛑 [จุดแก้ไข] เปลี่ยน URL ด้านล่างนี้ให้เป็นลิงก์เว็บที่คุณต้องการดึงข้อมูลจริงๆ ครับ
 url = "https://example.com/your-download-link.xlsx" 
 response = requests.get(url)
 with open(file_path, 'wb') as f:
     f.write(response.content)
 
-print(f"ดาวน์โหลดไฟล์สำเร็จและเซฟไว้ที่: {file_path}")[cite: 1]
+print(f"ดาวน์โหลดไฟล์สำเร็จและเซฟไว้ที่: {file_path}")
 
 
 # ==========================================================
-# ส่วนที่ 2: โค้ดส่งไฟล์ไป BigQuery (วิธีที่ 2)
+# ส่วนที่ 2: โค้ดส่งไฟล์ไป BigQuery
 # ==========================================================
 # เรียกใช้สิทธิ์การเข้าถึงจากที่เราตั้งค่าไว้ใน GitHub Secrets (GCP_SA_KEY) อัตโนมัติ
 client = bigquery.Client()
 
-# 🛑 อย่าลืมเปลี่ยนชื่อโปรเจกต์, dataset และชื่อตารางของคุณตรงนี้ให้ตรงกับใน Google Cloud
+# 🛑 [จุดแก้ไข] อย่าลืมเปลี่ยนชื่อโปรเจกต์, dataset และชื่อตารางของคุณตรงนี้ให้ตรงกับใน Google Cloud
 table_id = "ชื่อ-gcp-project-ของคุณ.ชื่อ_dataset_ของคุณ.ชื่อ_table_ของคุณ"
 
 # ตั้งค่าการโหลดไฟล์เข้า BigQuery
 job_config = bigquery.LoadJobConfig(
     source_format="EXCEL",            
     autodetect=True,                  
-    write_disposition="WRITE_APPEND", # "WRITE_APPEND" = เพิ่มต่อท้ายทุกวัน | "WRITE_TRUNCATE" = เขียนทับใหม่หมด
+    write_disposition="WRITE_APPEND", 
 )
 
 print(f"กำลังอัปโหลดไฟล์ {file_path} เข้า BigQuery...")
