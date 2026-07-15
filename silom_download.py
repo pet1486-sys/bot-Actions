@@ -5,6 +5,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import pandas as pd
 from google.cloud import bigquery
 
 # สั่งให้ Python พิมพ์ข้อความเรียงตามบรรทัดจริงบน GitHub Actions ป้องกัน Logs สลับกัน
@@ -106,8 +107,8 @@ try:
     print("กำลังใช้ JavaScript สั่งกดส่งออกไฟล์ Excel...")
     driver.execute_script("arguments[0].click();", export_button)
     
-    print("⏱️ รอระบบบันทึกไฟล์ลงดิสก์บนเซิร์ฟเวอร์ 15 วินาที...")
-    time.sleep(15)
+    print("⏱️ รอระบบบันทึกไฟล์ลงดิสก์บนเซิร์ฟเวอร์ 20 วินาทีเพื่อความชัวร์...")
+    time.sleep(20)
     
     driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "2_after_click.png"))
     print("📸 บันทึกภาพหน้าจอหลังกดปุ่มส่งออกไฟล์เรียบร้อย")
@@ -138,29 +139,30 @@ finally:
 
 
 # ==========================================================
-# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery
+# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery ด้วย Pandas (แก้ไขจุดบกพร่องเรื่องฟอร์แมตไฟล์)
 # ==========================================================
-print("\n--- เริ่มกระบวนการส่งข้อมูลเข้า Google Cloud BigQuery ---")
-client = bigquery.Client()
+print("\n--- เริ่มกระบวนการส่งข้อมูลเข้า Google Cloud BigQuery ด้วย Pandas ---")
 
-table_id = "northern-eon-470602-a2.stock_data.sku_list"
+# 1. ใช้ Pandas เปิดอ่านไฟล์ Excel เข้ามาในหน่วยความจำของบอทก่อน
+print(f"กำลังเปิดอ่านข้อมูลภายในไฟล์ Excel: {file_path}")
+df = pd.read_excel(file_path)
 
-# ปรับใช้เป็นข้อความสตริง "EXCEL" เปล่าๆ ป้องกัน Attribute Error
-job_config = bigquery.LoadJobConfig(
-    source_format="EXCEL", 
-    autodetect=True,                  
-    write_disposition="WRITE_APPEND", 
+# แปลงชื่อคอลัมน์ให้เป็นมิตรกับ BigQuery (ลบช่องว่างออกและแปลงเป็นตัวอักษรปกติ)
+df.columns = df.columns.astype(str).str.replace(' ', '_').str.replace('/', '_').str.replace('(', '').str.replace(')', '')
+
+# 2. ทำการอัปโหลดตารางขึ้นไปที่ BigQuery ตรงๆ
+table_id = "stock_data.sku_list"
+project_id = "northern-eon-470602-a2"
+full_table_path = f"{project_id}.{table_id}"
+
+print(f"กำลังส่งข้อมูลจำนวน {len(df)} แถว เข้าสู่ BigQuery ตาราง {full_table_path}...")
+
+# สั่งอัปโหลดข้อมูล (ถ้าไม่มีตารางจะสร้างให้ ถ้ามีอยู่แล้วจะใช้การต่อท้ายข้อมูล)
+df.to_gbq(
+    destination_table=table_id,
+    project_id=project_id,
+    if_exists='append',
+    progress_bar=False
 )
 
-print(f"กำลังอัปโหลดไฟล์ {file_path} เข้า BigQuery...")
-
-with open(file_path, "rb") as source_file:
-    job = client.load_table_from_file(
-        source_file, 
-        table_id, 
-        job_config=job_config
-    )
-
-job.result() # รอส่งข้อมูลจนเสร็จสมบูรณ์
-
-print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลถูกเพิ่มเข้าตาราง {table_id} เรียบร้อยแล้วครับ")
+print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลจาก Silom POS ถูกเพิ่มเข้าตาราง {full_table_path} เรียบร้อยแล้วครับ")

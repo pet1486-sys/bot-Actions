@@ -1,4 +1,6 @@
 selenium
 requests
 google-cloud-bigquery
+pandas
 openpyxl
+pandas-gbq
