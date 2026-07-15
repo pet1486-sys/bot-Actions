@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -139,16 +140,27 @@ finally:
 
 
 # ==========================================================
-# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery ด้วย Pandas (แก้ไขจุดบกพร่องเรื่องฟอร์แมตไฟล์)
+# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery ด้วย Pandas
 # ==========================================================
 print("\n--- เริ่มกระบวนการส่งข้อมูลเข้า Google Cloud BigQuery ด้วย Pandas ---")
 
-# 1. ใช้ Pandas เปิดอ่านไฟล์ Excel เข้ามาในหน่วยความจำของบอทก่อน
+# 1. ใช้ Pandas เปิดอ่านไฟล์ Excel ข้ามแถวขยะ 7 แถวแรก
 print(f"กำลังเปิดอ่านข้อมูลภายในไฟล์ Excel: {file_path}")
 df = pd.read_excel(file_path, header=7)
 
-# แปลงชื่อคอลัมน์ให้เป็นมิตรกับ BigQuery (ลบช่องว่างออกและแปลงเป็นตัวอักษรปกติ)
-df.columns = df.columns.astype(str).str.replace(' ', '_').str.replace('/', '_').str.replace('(', '').str.replace(')', '')
+# 🌟 จัดการลบอักขระพิเศษออกจากชื่อคอลัมน์ (เช่น จุด, วงเล็บ, ช่องว่าง) เพื่อไม่ให้ BigQuery ปฏิเสธ
+df.columns = (
+    df.columns.astype(str)
+    .str.replace(' ', '_')
+    .str.replace('.', '_', regex=False)
+    .str.replace('/', '_')
+    .str.replace('(', '')
+    .str.replace(')', '')
+)
+
+# 🌟 เพิ่มคอลัมน์ "วันเวลาที่รันบอท" (Run_Date) อ้างอิงเวลาประเทศไทย GMT+7
+th_time = datetime.utcnow() + timedelta(hours=7)
+df['Run_Date'] = th_time.strftime('%Y-%m-%d %H:%M:%S')
 
 # 2. ทำการอัปโหลดตารางขึ้นไปที่ BigQuery ตรงๆ
 table_id = "stock_data.sku_list"
@@ -165,4 +177,4 @@ df.to_gbq(
     progress_bar=False
 )
 
-print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลจาก Silom POS ถูกเพิ่มเข้าตาราง {full_table_path} เรียบร้อยแล้วครับ")
+print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลถูกเพิ่มเข้าตาราง {full_table_path} เรียบร้อยแล้วครับ")
