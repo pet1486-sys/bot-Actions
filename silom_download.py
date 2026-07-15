@@ -31,7 +31,7 @@ print(f"ดาวน์โหลดไฟล์สำเร็จและเซ
 client = bigquery.Client()
 
 # 🛑 [จุดแก้ไข] อย่าลืมเปลี่ยนชื่อโปรเจกต์, dataset และชื่อตารางของคุณตรงนี้ให้ตรงกับใน Google Cloud
-table_id = "ชื่อ-gcp-project-ของคุณ.ชื่อ_dataset_ของคุณ.ชื่อ_table_ของคุณ"
+table_id = "northern-eon-470602-a2.stock_data.sku_list"
 
 # ตั้งค่าการโหลดไฟล์เข้า BigQuery
 job_config = bigquery.LoadJobConfig(
