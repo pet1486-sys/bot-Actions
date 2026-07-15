@@ -7,16 +7,15 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from google.cloud import bigquery
 
-# สั่งให้ Python พิมพ์ข้อความเรียงตามบรรทัดจริงบน GitHub Actions
+# สั่งให้ Python พิมพ์ข้อความเรียงตามบรรทัดจริงบน GitHub Actions ป้องกัน Logs สลับกัน
 sys.stdout.reconfigure(line_buffering=True)
 
 # ==========================================================
-# CONFIGURATION & SETTINGS (จากโค้ดเดิมของคุณ)
+# CONFIGURATION & SETTINGS
 # ==========================================================
 USERNAME = "pet1486@gmail.com"
 PASSWORD = "htz32151"
 
-# ปรับตำแหน่งโฟลเดอร์ให้สอดคล้องกับระบบอัปโหลด
 DOWNLOAD_DIR = "stock_data" 
 SCREENSHOT_DIR = "/home/runner/work_screenshots"
 
@@ -49,7 +48,7 @@ driver = webdriver.Chrome(options=chrome_options)
 wait = WebDriverWait(driver, 20)
 
 # ==========================================================
-# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium (โค้ดจริงของคุณ)
+# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium
 # ==========================================================
 try:
     print("กำลังเปิดหน้าเว็บไซต์ Silom POS...")
@@ -113,11 +112,11 @@ try:
     driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "2_after_click.png"))
     print("📸 บันทึกภาพหน้าจอหลังกดปุ่มส่งออกไฟล์เรียบร้อย")
     
-    # ดึงชื่อไฟล์ที่ดาวน์โหลดมาจริงเพื่อทำการเปลี่ยนชื่อให้ตรงกับสคริปต์ BigQuery
+    # ตรวจสอบไฟล์ที่ดาวน์โหลดมา
     files = os.listdir(DOWNLOAD_DIR)
     print(f"ไฟล์ที่พบในโฟลเดอร์ดาวน์โหลด: {files}")
     
-    # เปลี่ยนชื่อไฟล์อะไรก็ตามที่ดาวน์โหลดมาล่าสุดให้กลายเป็น SKU.xlsx เพื่อให้ BigQuery อัปโหลดได้
+    # เปลี่ยนชื่อไฟล์ล่าสุดให้กลายเป็น SKU.xlsx
     if files:
         latest_file = max([os.path.join(DOWNLOAD_DIR, f) for f in files], key=os.path.getctime)
         if latest_file != file_path:
@@ -138,17 +137,17 @@ finally:
     driver.quit()
 
 
-# # ==========================================================
-# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery (ทำงานต่อจาก Selenium)
+# ==========================================================
+# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery
 # ==========================================================
 print("\n--- เริ่มกระบวนการส่งข้อมูลเข้า Google Cloud BigQuery ---")
 client = bigquery.Client()
 
-# ที่อยู่ตารางที่เราสร้างเปล่าไว้รองรับ
 table_id = "northern-eon-470602-a2.stock_data.sku_list"
 
+# ใช้คลาสบิ้วต์อินล็อกสเปกประเภทไฟล์ให้ BigQuery ปลายทางรับรู้ว่าเป็น Excel แน่นอน ไม่โดนแปลงเป็น CSV
 job_config = bigquery.LoadJobConfig(
-    source_format="GOOGLE_SHEETS",    # ✅ แก้ไขตรงนี้เป็น "GOOGLE_SHEETS" เพื่อบังคับให้อ่านไฟล์ Excel .xlsx ได้ถูกต้อง
+    source_format=bigquery.SourceFormat.EXCEL, 
     autodetect=True,                  
     write_disposition="WRITE_APPEND", 
 )
@@ -164,4 +163,4 @@ with open(file_path, "rb") as source_file:
 
 job.result() # รอส่งข้อมูลจนเสร็จสมบูรณ์
 
-print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลจาก Silom POS ถูกเพิ่มเข้าตาราง {table_id} เรียบร้อยแล้วครับ")
+print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลถูกเพิ่มเข้าตาราง {table_id} เรียบร้อยแล้วครับ")
