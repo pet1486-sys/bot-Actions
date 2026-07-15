@@ -43,4 +43,4 @@ jobs:
 
       # 5. สั่งรันสคริปต์ Python เพื่อดาวน์โหลดไฟล์และส่งเข้า BigQuery ทันที
       - name: Run Python Script
-        run: python silom_download.py
+        run: python silom_sku.py
