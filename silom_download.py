@@ -1,48 +1,160 @@
 import os
 import sys
-import requests
+import time
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from google.cloud import bigquery
 
 # สั่งให้ Python พิมพ์ข้อความเรียงตามบรรทัดจริงบน GitHub Actions
 sys.stdout.reconfigure(line_buffering=True)
 
 # ==========================================================
-# ส่วนที่ 1: โค้ดดึงไฟล์และสร้างโฟลเดอร์
+# CONFIGURATION & SETTINGS (จากโค้ดเดิมของคุณ)
 # ==========================================================
-print("กำลังเริ่มดาวน์โหลดไฟล์จากเว็บไซต์...")
+USERNAME = "pet1486@gmail.com"
+PASSWORD = "htz32151"
 
-# สร้างโฟลเดอร์สำหรับเก็บไฟล์ชั่วคราว
-os.makedirs('stock_data', exist_ok=True)
-file_path = 'stock_data/SKU.xlsx'
+# ปรับตำแหน่งโฟลเดอร์ให้สอดคล้องกับระบบอัปโหลด
+DOWNLOAD_DIR = "stock_data" 
+SCREENSHOT_DIR = "/home/runner/work_screenshots"
 
-# 🛑 ตรวจสอบและใส่ URL โหลดไฟล์จริงของคุณตรงนี้ครับ
-url = "https://example.com/your-download-link.xlsx" 
-response = requests.get(url)
-with open(file_path, 'wb') as f:
-    f.write(response.content)
+for folder in [DOWNLOAD_DIR, SCREENSHOT_DIR]:
+    if not os.path.exists(folder):
+        os.makedirs(folder)
 
-print(f"ดาวน์โหลดไฟล์สำเร็จและเซฟไว้ที่: {file_path}")
+file_path = os.path.join(DOWNLOAD_DIR, "SKU.xlsx")
+
+# ตั้งค่า Chrome Options สำหรับทำงานบน GitHub Actions
+chrome_options = webdriver.ChromeOptions()
+prefs = {
+    "download.default_directory": os.path.abspath(DOWNLOAD_DIR), # บังคับดาวน์โหลดลงโฟลเดอร์ stock_data
+    "download.prompt_for_download": False,        
+    "download.directory_upgrade": True,
+    "safebrowsing.enabled": True,
+    "profile.password_manager_leak_detection": False,
+    "credentials_enable_service": False,
+    "profile.password_manager_enabled": False
+}
+chrome_options.add_experimental_option("prefs", prefs)
+
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.add_argument("--window-size=1920,1080")
+
+print("กำลังสั่งเปิด Chrome (Headless) บน GitHub Actions...")
+driver = webdriver.Chrome(options=chrome_options)
+wait = WebDriverWait(driver, 20)
+
+# ==========================================================
+# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium (โค้ดจริงของคุณ)
+# ==========================================================
+try:
+    print("กำลังเปิดหน้าเว็บไซต์ Silom POS...")
+    driver.get("https://dashboard.silompos.com/login")
+    
+    print("กำลังกรอกข้อมูลเข้าสู่ระบบ...")
+    username_input = wait.until(EC.presence_of_element_located((
+        By.XPATH, "//input[@type='text' or @type='email' or @autocomplete='username']"
+    )))
+    username_input.clear()
+    username_input.send_keys(USERNAME)
+    
+    password_input = driver.find_element(By.XPATH, "//input[@type='password']")
+    password_input.clear()
+    password_input.send_keys(PASSWORD)
+    
+    login_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Sign In')]")))
+    login_button.click()
+    
+    print("กำลังรอโหลดหน้า Dashboard...")
+    time.sleep(8)
+    
+    try:
+        driver.execute_script("""
+            var modals = document.querySelectorAll('.v-modal, .el-dialog__wrapper, .modal-backdrop, [role="dialog"]');
+            modals.forEach(function(el) { el.remove(); });
+            document.body.style.overflow = 'auto';
+            var chats = document.querySelectorAll('#crisp-chat-box, .crisp-client, [class^="cc-"]');
+            chats.forEach(function(el) { el.remove(); });
+        """)
+        print("ล้างสิ่งกีดขวางหน้าจอเรียบร้อย")
+    except Exception:
+        pass
+
+    print("กำลังคลิกหัวข้อหลัก 'สินค้าคงคลัง'...")
+    menu_inventory = wait.until(EC.element_to_be_clickable((
+        By.XPATH, "//*[contains(@class, 'sidebar') or contains(@class, 'menu')]//*[contains(text(), 'สินค้าคงคลัง')]"
+    )))
+    menu_inventory.click()
+    time.sleep(2)
+    
+    print("กำลังคลิกเมนูย่อย 'สินค้าคงเหลือตาม SKU'...")
+    submenu_sku = wait.until(EC.element_to_be_clickable((
+        By.XPATH, "//*[contains(@class, 'sidebar') or contains(@class, 'menu')]//*[contains(text(), 'สินค้าคงเหลือตาม SKU')]"
+    )))
+    submenu_sku.click()
+    
+    print("กำลังดักรอปุ่ม 'ส่งออกไฟล์' ปรากฏ...")
+    export_button = wait.until(EC.presence_of_element_located((By.ID, "SKUInventoryExportButton")))
+    time.sleep(5)
+    
+    driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "1_before_click.png"))
+    print("📸 บันทึกภาพหน้าจอก่อนกดปุ่มส่งออกไฟล์เรียบร้อย")
+
+    print("กำลังใช้ JavaScript สั่งกดส่งออกไฟล์ Excel...")
+    driver.execute_script("arguments[0].click();", export_button)
+    
+    print("⏱️ รอระบบบันทึกไฟล์ลงดิสก์บนเซิร์ฟเวอร์ 15 วินาที...")
+    time.sleep(15)
+    
+    driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "2_after_click.png"))
+    print("📸 บันทึกภาพหน้าจอหลังกดปุ่มส่งออกไฟล์เรียบร้อย")
+    
+    # ดึงชื่อไฟล์ที่ดาวน์โหลดมาจริงเพื่อทำการเปลี่ยนชื่อให้ตรงกับสคริปต์ BigQuery
+    files = os.listdir(DOWNLOAD_DIR)
+    print(f"ไฟล์ที่พบในโฟลเดอร์ดาวน์โหลด: {files}")
+    
+    # เปลี่ยนชื่อไฟล์อะไรก็ตามที่ดาวน์โหลดมาล่าสุดให้กลายเป็น SKU.xlsx เพื่อให้ BigQuery อัปโหลดได้
+    if files:
+        latest_file = max([os.path.join(DOWNLOAD_DIR, f) for f in files], key=os.path.getctime)
+        if latest_file != file_path:
+            os.rename(latest_file, file_path)
+        print(f"เตรียมอัปโหลดไฟล์เสร็จสมบูรณ์ที่: {file_path}")
+    else:
+        raise FileNotFoundError("บอทหาไฟล์ Excel ที่ดาวน์โหลดไม่เจอในโฟลเดอร์!")
+
+except Exception as e:
+    print(f"เกิดข้อผิดพลาดในการทำงาน: {str(e)}")
+    try:
+        driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "error_screenshot.png"))
+        print("📸 บันทึกภาพหน้าจอขณะเกิดข้อผิดพลาดเรียบร้อย")
+    except Exception:
+        pass
+    raise e
+finally:
+    driver.quit()
 
 
 # ==========================================================
-# ส่วนที่ 2: โค้ดส่งไฟล์ไป BigQuery
+# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery (ทำงานต่อจาก Selenium)
 # ==========================================================
-# เรียกใช้สิทธิ์การเข้าถึงจากที่เราตั้งค่าไว้ใน GitHub Secrets (GCP_SA_KEY) อัตโนมัติ
+print("\n--- เริ่มกระบวนการส่งข้อมูลเข้า Google Cloud BigQuery ---")
 client = bigquery.Client()
 
-# 🛑 ตรวจสอบให้มั่นใจว่า ชื่อตาราง sku_list ถูกต้องตรงกับบน BigQuery
+# ที่อยู่ตารางที่เราสร้างเปล่าไว้รองรับ
 table_id = "northern-eon-470602-a2.stock_data.sku_list"
 
-# ตั้งค่าการโหลดไฟล์เข้า BigQuery แบบระบุชนิดไฟล์เข้มงวดด้วยการใช้ string "EXCEL" ป้องกันบั๊ก Enum
 job_config = bigquery.LoadJobConfig(
-    source_format="EXCEL",            # ใช้ข้อความตัวพิมพ์ใหญ่ "EXCEL" แบบนี้ปลอดภัยที่สุดครับ
+    source_format="EXCEL",            
     autodetect=True,                  
     write_disposition="WRITE_APPEND", 
 )
 
 print(f"กำลังอัปโหลดไฟล์ {file_path} เข้า BigQuery...")
 
-# เริ่มส่งไฟล์เข้า BigQuery
 with open(file_path, "rb") as source_file:
     job = client.load_table_from_file(
         source_file, 
@@ -50,6 +162,6 @@ with open(file_path, "rb") as source_file:
         job_config=job_config
     )
 
-job.result() # รอให้ระบบทำงานจนเสร็จสมบูรณ์
+job.result() # รอส่งข้อมูลจนเสร็จสมบูรณ์
 
-print(f"🎉 อัปโหลดสำเร็จ! ข้อมูลถูกเพิ่มเข้าตาราง {table_id} เรียบร้อยแล้ว")
+print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลจาก Silom POS ถูกเพิ่มเข้าตาราง {table_id} เรียบร้อยแล้วครับ")
