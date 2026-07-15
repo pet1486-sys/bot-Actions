@@ -1,0 +1,38 @@
+name: Run Data Bot
+
+# ตั้งค่าเหตุการณ์ในการสั่งให้บอททำงาน
+on:
+  schedule:
+    - cron: '0 0 * * *' # 🕒 ตั้งเวลาให้บอทรันอัตโนมัติทุกวันตอนเที่ยงคืน (ตามเวลา UTC)
+  workflow_dispatch:     # 🔘 เพิ่มปุ่มกดให้คุณสามารถสั่งกดรันด้วยตัวเองแมนนวลได้จากหน้าเว็บ GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # ใช้ระบบปฏิบัติการ Linux ในการรันบอทชั่วคราว
+    
+    steps:
+      # 1. ดึงโค้ดทั้งหมดจาก Repository มาเตรียมไว้บนบอท
+      - name: Checkout repository code
+        uses: actions/checkout@v3
+
+      # 2. ติดตั้งระบบ Python รุ่น 3.9 บนบอท
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      # 3. ติดตั้ง Library ต่าง ๆ ตามที่ระบุไว้ในไฟล์ requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. ดึง JSON Key จาก GitHub Secrets มายืนยันตัวตนกับ Google Cloud
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      # 5. สั่งรันสคริปต์ Python เพื่อดาวน์โหลดไฟล์และส่งเข้า BigQuery ทันที
+      - name: Run Python Script
+        run: python silom_download.py
