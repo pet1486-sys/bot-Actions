@@ -1,24 +1,28 @@
 import os
+import sys
 import requests
 from google.cloud import bigquery
 
+# สั่งให้ Python พิมพ์ข้อความเรียงตามบรรทัดจริงบน GitHub Actions
+sys.stdout.reconfigure(line_buffering=True)
+
 # ==========================================================
-# ส่วนที่ 1: โค้ดดึงไฟล์เดิมของคุณ (คงไว้ตามเดิม)
+# ส่วนที่ 1: โค้ดดึงไฟล์และสร้างโฟลเดอร์ (รวมจากไฟล์เดิมของคุณ)
 # ==========================================================
 print("กำลังเริ่มดาวน์โหลดไฟล์จากเว็บไซต์...")
 
-# 📁 สร้างโฟลเดอร์สำหรับเก็บไฟล์ชั่วคราวแบบสะอาด
-os.makedirs('stock_data', exist_ok=True)
-file_path = 'stock_data/SKU.xlsx'
+# สร้างโฟลเดอร์สำหรับเก็บไฟล์ชั่วคราว
+os.makedirs('stock_data', exist_ok=True)[cite: 1]
+file_path = 'stock_data/SKU.xlsx'[cite: 1]
 
-# --- (ใส่โค้ดการดาวน์โหลดของคุณต่อตรงนี้ หรือปรับเปลี่ยนตามการทำงานจริงของคุณ) ---
-# ตัวอย่างเช่น:
-# url = "http://example.com/data.xlsx"
-# response = requests.get(url)
-# with open(file_path, 'wb') as f:
-#     f.write(response.content)
+# --- โค้ดส่วนดึงข้อมูลของคุณ (ดึงไฟล์มาเซฟเป็น SKU.xlsx) ---
+# บรรทัดด้านล่างนี้คือตัวอย่างการดึงไฟล์จริง ให้เปลี่ยน URL เป็นลิงก์เว็บที่คุณต้องการดึงข้อมูลครับ
+url = "https://example.com/your-download-link.xlsx" 
+response = requests.get(url)
+with open(file_path, 'wb') as f:
+    f.write(response.content)
 
-print(f"ดาวน์โหลดไฟล์สำเร็จและเซฟไว้ที่: {file_path}")
+print(f"ดาวน์โหลดไฟล์สำเร็จและเซฟไว้ที่: {file_path}")[cite: 1]
 
 
 # ==========================================================
@@ -30,11 +34,11 @@ client = bigquery.Client()
 # 🛑 อย่าลืมเปลี่ยนชื่อโปรเจกต์, dataset และชื่อตารางของคุณตรงนี้ให้ตรงกับใน Google Cloud
 table_id = "ชื่อ-gcp-project-ของคุณ.ชื่อ_dataset_ของคุณ.ชื่อ_table_ของคุณ"
 
-# ตั้งค่าการโหลดไฟล์
+# ตั้งค่าการโหลดไฟล์เข้า BigQuery
 job_config = bigquery.LoadJobConfig(
-    source_format="EXCEL",            # กำหนดเป็นสตริง "EXCEL" เพื่อป้องกันการหาแอตทริบิวต์ไม่เจอ
-    autodetect=True,                  # ให้ BigQuery เดาประเภทข้อมูล (Schema) ให้เอง
-    write_disposition="WRITE_APPEND", # "WRITE_APPEND" = เพิ่มต่อท้ายทุกวัน | "WRITE_TRUNCATE" = ลบของเก่าแล้วเขียนทับใหม่หมด
+    source_format="EXCEL",            
+    autodetect=True,                  
+    write_disposition="WRITE_APPEND", # "WRITE_APPEND" = เพิ่มต่อท้ายทุกวัน | "WRITE_TRUNCATE" = เขียนทับใหม่หมด
 )
 
 print(f"กำลังอัปโหลดไฟล์ {file_path} เข้า BigQuery...")
