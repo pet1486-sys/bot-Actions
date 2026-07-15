@@ -138,7 +138,7 @@ finally:
     driver.quit()
 
 
-# ==========================================================
+# # ==========================================================
 # ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery (ทำงานต่อจาก Selenium)
 # ==========================================================
 print("\n--- เริ่มกระบวนการส่งข้อมูลเข้า Google Cloud BigQuery ---")
@@ -148,7 +148,7 @@ client = bigquery.Client()
 table_id = "northern-eon-470602-a2.stock_data.sku_list"
 
 job_config = bigquery.LoadJobConfig(
-    source_format="EXCEL",            
+    source_format="GOOGLE_SHEETS",    # ✅ แก้ไขตรงนี้เป็น "GOOGLE_SHEETS" เพื่อบังคับให้อ่านไฟล์ Excel .xlsx ได้ถูกต้อง
     autodetect=True,                  
     write_disposition="WRITE_APPEND", 
 )
