@@ -86,15 +86,15 @@ try:
     except Exception:
         pass
 
-    # 🌟 กลับมาใช้การจำลองคนคลิก: กดเปิดเมนูหลัก 'การขาย'
+    # คลิกเปิดเมนูหลัก 'การขาย'
     print("กำลังคลิกหัวข้อหลัก 'การขาย'...")
     menu_sales = wait.until(EC.element_to_be_clickable((
         By.XPATH, "//*[contains(text(), 'การขาย') or contains(@class, 'menu')]"
     )))
     driver.execute_script("arguments[0].click();", menu_sales)
-    time.sleep(4) # รอให้แถบเมนูกางออกอย่างสมบูรณ์
+    time.sleep(4)
     
-    # 🌟 เจาะจงหาลิงก์ของเมนูย่อยตรงๆ จากในเมนูที่กางออก (ใช้ XPATH หาจาก attribute href ยอดขายรายละเอียดบิล)
+    # คลิกเมนูย่อย 'ยอดขายตามรายละเอียดบิล'
     print("กำลังคลิกเมนูย่อย 'ยอดขายตามรายละเอียดบิล'...")
     submenu_sales_detail = wait.until(EC.presence_of_element_located((
         By.XPATH, "//a[contains(@href, '/report/sell/detail')] | //*[contains(text(), 'ยอดขายตามรายละเอียดบิล')]"
@@ -116,24 +116,32 @@ try:
     print("กำลังใช้ JavaScript สั่งกดส่งออกไฟล์ Excel...")
     driver.execute_script("arguments[0].click();", export_button)
     
-    print("⏱️ รอระบบบันทึกไฟล์ลงดิสก์บนเซิร์ฟเวอร์ 20 วินาทีเพื่อความชัวร์...")
-    time.sleep(20)
+    # 🌟 [ปรับปรุงใหม่] วนลูปรอให้ไฟล์ดาวน์โหลดตกลงมาในเครื่อง (สูงสุด 60 วินาที)
+    print("⏱️ กำลังตรวจสอบโฟลเดอร์และรอไฟล์ดาวน์โหลดเข้าดิสก์...")
+    downloaded = False
+    for i in range(12): # 12 รอบ รอบละ 5 วินาที = 60 วินาที
+        time.sleep(5)
+        files = os.listdir(DOWNLOAD_DIR)
+        # ตรวจสอบว่าต้องมีไฟล์และไม่ใช่ไฟล์ชั่วคราว .crdownload ของ Chrome
+        valid_files = [f for f in files if not f.endswith('.crdownload')]
+        if valid_files:
+            print(f"พบไฟล์ดาวน์โหลดในรอบที่ {i+1}: {valid_files}")
+            downloaded = True
+            break
+        print(f"รอบที่ {i+1}: ยังไม่พบไฟล์ กำลังรอต่อ...")
     
     driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "2_sales_after_click.png"))
-    print("📸 บันทึกภาพหน้าจอหลังกดปุ่มส่งออกไฟล์เรียบร้อย")
+    print("📸 บันทึกภาพหน้าจอหลังกระบวนการดาวน์โหลดเรียบร้อย")
     
-    # ตรวจสอบไฟล์ที่ดาวน์โหลดมา
+    # ตรวจสอบไฟล์ในเครื่องอีกรอบหลังจบลูป
     files = os.listdir(DOWNLOAD_DIR)
-    print(f"ไฟล์ที่พบในโฟลเดอร์ดาวน์โหลด: {files}")
-    
-    # เปลี่ยนชื่อไฟล์ล่าสุดให้กลายเป็น Sales.xlsx
-    if files:
+    if downloaded and files:
         latest_file = max([os.path.join(DOWNLOAD_DIR, f) for f in files], key=os.path.getctime)
         if latest_file != file_path:
             os.rename(latest_file, file_path)
         print(f"เตรียมอัปโหลดไฟล์เสร็จสมบูรณ์ที่: {file_path}")
     else:
-        raise FileNotFoundError("บอทหาไฟล์ Excel ที่ดาวน์โหลดไม่เจอในโฟลเดอร์!")
+        raise FileNotFoundError(f"บอทหาไฟล์ Excel ที่ดาวน์โหลดไม่เจอในโฟลเดอร์! (ไฟล์ในโฟลเดอร์ขณะนี้: {files})")
 
 except Exception as e:
     print(f"เกิดข้อผิดพลาดในการทำงาน: {str(e)}")
