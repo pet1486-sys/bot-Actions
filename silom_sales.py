@@ -51,7 +51,7 @@ driver = webdriver.Chrome(options=chrome_options)
 wait = WebDriverWait(driver, 20)
 
 # ==========================================================
-# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium (ตรรกะจากคอมเครื่องจริง)
+# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium
 # ==========================================================
 try:
     print("กำลังเปิดหน้าเว็บไซต์ Silom POS...")
@@ -74,7 +74,7 @@ try:
     print("กำลังรอโหลดหน้า Dashboard...")
     time.sleep(8)
 
-    # 1. เลื่อนหน้าจอไปหาเมนูหลัก 'การขาย' และคลิกเพื่อให้เมนูกางออกตามวิธีปกติของมนุษย์
+    # 1. เลื่อนหน้าจอไปหาเมนูหลัก 'การขาย' และคลิกเพื่อให้เมนูกางออก
     print("กำลังค้นหาและคลิกหัวข้อหลัก 'การขาย'...")
     menu_sales = wait.until(EC.presence_of_element_located((
         By.XPATH, "//*[contains(text(), 'การขาย') or contains(@class, 'menu')]"
@@ -86,7 +86,7 @@ try:
     print("รอเมนูกางออก 4 วินาที...")
     time.sleep(4)
     
-    # 2. ค้นหาและคลิกเมนูย่อย 'ยอดขายตามรายละเอียดบิล' ด้วยข้อความภาษาไทยตรงๆ ป้องกันการหลงหน้าสินค้า
+    # 2. ค้นหาและคลิกเมนูย่อย 'ยอดขายตามรายละเอียดบิล' ด้วยข้อความภาษาไทยตรงๆ
     print("กำลังค้นหาและคลิกเมนูย่อย 'ยอดขายตามรายละเอียดบิล'...")
     submenu_sales_detail = wait.until(EC.presence_of_element_located((
         By.XPATH, "//*[contains(text(), 'ยอดขายตามรายละเอียดบิล')]"
@@ -181,7 +181,7 @@ finally:
 
 
 # ==========================================================
-# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery ด้วย Pandas
+# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery ด้วย Pandas (เวอร์ชันแก้ข้อมูลซ้ำ)
 # ==========================================================
 print("\n--- เริ่มกระบวนการส่งข้อมูลเข้า Google Cloud BigQuery ด้วย Pandas ---")
 
@@ -201,6 +201,7 @@ df.columns = (
     .str.replace(')', '')
 )
 
+# คำนวณเวลาไทยปัจจุบันสำหรับระบุวันเก็บข้อมูล
 th_time = datetime.utcnow() + timedelta(hours=7)
 df['Run_Date'] = th_time.strftime('%Y-%m-%d %H:%M:%S')
 
@@ -208,8 +209,24 @@ table_id = "stock_data.sales_list"
 project_id = "northern-eon-470602-a2"
 full_table_path = f"{project_id}.{table_id}"
 
-print(f"กำลังส่งข้อมูลจำนวน {len(df)} แถว เข้าสู่ BigQuery ตาราง {full_table_path}...")
+# 🌟 [แก้ไขจุดเด่นเพื่อป้องกันข้อมูลซ้ำ] สั่งลบข้อมูลเก่าของ "วันนี้" ออกจาก BigQuery ก่อน
+try:
+    client = bigquery.Client(project=project_id)
+    today_str = th_time.strftime('%Y-%m-%d')
+    
+    delete_query = f"""
+        DELETE FROM `{full_table_path}`
+        WHERE DATE(Run_Date) = '{today_str}';
+    """
+    print(f"🧹 กำลังเคลียร์ข้อมูลเก่าของวันที่ {today_str} ใน BigQuery เพื่อป้องกันการบันทึกซ้ำ...")
+    query_job = client.query(delete_query)
+    query_job.result()  # รอให้การลบทำงานเสร็จสิ้นสมบูรณ์
+    print("-> ลบข้อมูลรอบเดิมของวันนี้เรียบร้อยแล้ว!")
+except Exception as err:
+    print(f"⚠️ ไม่สามารถลบข้อมูลเก่าได้ (อาจเป็นเพราะตารางยังไม่มีหรือรันครั้งแรก): {str(err)}")
 
+# โยนข้อมูลชุดล่าสุดของวันนี้เติมลงไปแบบไม่มีคำว่าเบิ้ล
+print(f"กำลังส่งข้อมูลชุดล่าสุดจำนวน {len(df)} แถว เข้าสู่ BigQuery ตาราง {full_table_path}...")
 df.to_gbq(
     destination_table=table_id,
     project_id=project_id,
@@ -217,7 +234,7 @@ df.to_gbq(
     progress_bar=False
 )
 
-print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลถูกเพิ่มเข้าตาราง {full_table_path} เรียบร้อยแล้วครับ")
+print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! อัปเดตข้อมูลเป็นเวอร์ชันล่าสุดเรียบร้อยแล้วครับ")
 
 
 # ==========================================================
