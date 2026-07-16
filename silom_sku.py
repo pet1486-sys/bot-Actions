@@ -178,3 +178,33 @@ df.to_gbq(
 )
 
 print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลถูกเพิ่มเข้าตาราง {full_table_path} เรียบร้อยแล้วครับ")
+
+
+# ==========================================================
+# 🌟 ส่วนที่ 3: ดึงเวลาอัปเดตล่าสุดจาก BigQuery และเซฟลงไฟล์ข้อความ (เพิ่มใหม่)
+# ==========================================================
+print("\n--- เริ่มกระบวนการดึงเวลาแก้ไขล่าสุดจาก BigQuery เพื่อส่งให้หน้าเว็บ ---")
+try:
+    client = bigquery.Client(project=project_id)
+    # คิวรีดึง Metadata เวลาแก้ไขล่าสุดของตารางจริงจาก BigQuery
+    query = f"""
+        SELECT TIMESTAMP_MILLIS(last_modified_time) AS last_updated
+        FROM `{project_id}.stock_data.__TABLES__`
+        WHERE table_id = 'sku_list';
+    """
+    query_job = client.query(query)
+    results = query_job.result()
+    
+    for row in results:
+        # แปลงเวลาจาก UTC เป็นเวลาไทย (+7 ชั่วโมง)
+        utc_time = row.last_updated
+        thai_time = utc_time + timedelta(hours=7)
+        time_str = thai_time.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # เขียนเวลาลงไฟล์ข้อความเพื่อรอให้ GitHub Push ขึ้นระบบ
+        with open("sku_last_update.txt", "w", encoding="utf-8") as f:
+            f.write(time_str)
+        print(f"🎯 ดึงข้อมูลสำเร็จ! เวลาแก้ไขจริงใน BigQuery คือ: {time_str} น. (บันทึกลงไฟล์แล้ว)")
+
+except Exception as e:
+    print(f"⚠️ เกิดข้อผิดพลาดในการเขียนไฟล์เวลาอัปเดต: {str(e)}")
