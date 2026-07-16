@@ -3,7 +3,7 @@ name: Run Sales Data Bot
 # ตั้งค่าเหตุการณ์ในการสั่งให้บอททำงาน
 on:
   schedule:
-    - cron: '0 1 * * *' # 🕒 ตั้งเวลาให้บอทรันอัตโนมัติทุกวันตอนตี 1 UTC (ปรับเวลาไม่ให้ชนกับบอตตัวแรก)
+    - cron: '0 1 * * *' # 🕒 ตั้งเวลาให้บอทรันอัตโนมัติทุกวันตอนตี 1 UTC (เวลาไทยประมาณ 8 โมงเช้า)
   workflow_dispatch:     # 🔘 เพิ่มปุ่มกดรันแมนนวลเองได้จากหน้าเว็บ GitHub
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
       - name: Run Python Script
         run: python silom_sales.py
 
-      # 🌟 6. บันทึกและส่งไฟล์เวลาอัปเดตของยอดขายกลับเข้า GitHub Repo อัตโนมัติ
+      # 6. บันทึกและส่งไฟล์เวลาอัปเดตของยอดขายกลับเข้า GitHub Repo อัตโนมัติ
       - name: Commit and Push Last Update Time
         run: |
           if [ -f sales_last_update.txt ]; then
@@ -50,3 +50,11 @@ jobs:
             git commit -m "Auto-update sales last modified time from BigQuery [skip ci]" || true
             git push
           fi
+
+      # 🌟 7. อัปโหลดภาพหน้าจอตอนพังขึ้นระบบ GitHub (เปิดดูได้ในหน้าบอท หากรันไม่ผ่าน)
+      - name: Upload Error Screenshot if Failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sales-bot-error-screenshot
+          path: /home/runner/work_screenshots/
