@@ -6,7 +6,6 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
 import pandas as pd
 from google.cloud import bigquery
 
@@ -29,7 +28,7 @@ for folder in [DOWNLOAD_DIR, SCREENSHOT_DIR]:
 # เปลี่ยนชื่อเป็น Sales.xlsx
 file_path = os.path.join(DOWNLOAD_DIR, "Sales.xlsx")
 
-# ตั้งค่า Chrome Options สำหรับทำงานบน GitHub Actions
+# ตั้งค่า Chrome Options สำหรับทำงานบน GitHub Actions (Headless)
 chrome_options = webdriver.ChromeOptions()
 prefs = {
     "download.default_directory": os.path.abspath(DOWNLOAD_DIR), 
@@ -45,14 +44,14 @@ chrome_options.add_experimental_option("prefs", prefs)
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
-chrome_options.add_argument("--window-size=1920,1080")
+chrome_options.add_argument("--window-size=1440,900")
 
 print("กำลังสั่งเปิด Chrome (Headless) บน GitHub Actions...")
 driver = webdriver.Chrome(options=chrome_options)
 wait = WebDriverWait(driver, 20)
 
 # ==========================================================
-# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium
+# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium (ตรรกะจากคอมเครื่องจริง)
 # ==========================================================
 try:
     print("กำลังเปิดหน้าเว็บไซต์ Silom POS...")
@@ -75,90 +74,89 @@ try:
     print("กำลังรอโหลดหน้า Dashboard...")
     time.sleep(8)
 
-    # คลิกเปิดเมนูหลัก 'การขาย'
-    print("กำลังคลิกหัวข้อหลัก 'การขาย'...")
-    menu_sales = wait.until(EC.element_to_be_clickable((
+    # 1. เลื่อนหน้าจอไปหาเมนูหลัก 'การขาย' และคลิกเพื่อให้เมนูกางออกตามวิธีปกติของมนุษย์
+    print("กำลังค้นหาและคลิกหัวข้อหลัก 'การขาย'...")
+    menu_sales = wait.until(EC.presence_of_element_located((
         By.XPATH, "//*[contains(text(), 'การขาย') or contains(@class, 'menu')]"
     )))
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", menu_sales)
+    time.sleep(1)
     driver.execute_script("arguments[0].click();", menu_sales)
+    
+    print("รอเมนูกางออก 4 วินาที...")
     time.sleep(4)
     
-    # คลิกเมนูย่อย 'ยอดขายตามรายละเอียดบิล'
-    print("กำลังคลิกเมนูย่อย 'ยอดขายตามรายละเอียดบิล'...")
+    # 2. ค้นหาและคลิกเมนูย่อย 'ยอดขายตามรายละเอียดบิล' ด้วยข้อความภาษาไทยตรงๆ ป้องกันการหลงหน้าสินค้า
+    print("กำลังค้นหาและคลิกเมนูย่อย 'ยอดขายตามรายละเอียดบิล'...")
     submenu_sales_detail = wait.until(EC.presence_of_element_located((
-        By.XPATH, "//a[contains(@href, '/report/sell/detail')] | //*[contains(text(), 'ยอดขายตามรายละเอียดบิล')]"
+        By.XPATH, "//*[contains(text(), 'ยอดขายตามรายละเอียดบิล')]"
     )))
-    driver.execute_script("arguments[0].scrollIntoView(true);", submenu_sales_detail)
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submenu_sales_detail)
     time.sleep(1)
     driver.execute_script("arguments[0].click();", submenu_sales_detail)
     
-    print("กำลังโหลดหน้ายอดขายและรอเคลียร์สิ่งกีดขวาง...")
-    time.sleep(10) # เพิ่มเวลารอให้หน้านี้โหลดเสร็จเต็มที่ก่อนจัดการป๊อปอัป
-
-    # 🌟 [ปรับปรุงใหม่] พยายามคลิกปุ่มกากบาทปิด (X) ของแถบคู่มือขวาขวาก่อน
-    try:
-        print("กำลังพยายามหาและกดปุ่มกากบาท (X) เพื่อปิดแถบคู่มือฝั่งขวา...")
-        close_drawer_btn = driver.find_elements(By.XPATH, "//button[contains(@class, 'el-drawer__close-btn')] | //i[contains(@class, 'el-icon-close')]")
-        if close_drawer_btn:
-            driver.execute_script("arguments[0].click();", close_drawer_btn[0])
-            print("กดปุ่มปิดแถบคู่มือเรียบร้อย")
-            time.sleep(2)
-    except Exception as ex:
-        print(f"กดปุ่มกากบาทไม่สำเร็จ จะใช้คำสั่งลบทิ้งแทน: {str(ex)}")
-
-    # 🌟 [ปรับปรุงใหม่] ลบและซ่อนทุกคลาสที่มีโอกาสเกี่ยวข้องกับแผงข้างและกล่องแชทแบบจัดเต็ม
+    # 3. เมื่อเปลี่ยนหน้ามาแล้ว รอให้รายงานยอดขายโหลดเสร็จจริง ๆ
+    print("🎯 กำลังโหลดหน้ารายงานยอดขายตามรายละเอียดบิล...")
+    time.sleep(8)
+    
+    print("🧼 เริ่มกระบวนการเคลียร์หน้าจอ (ลบกล่องแชท Crisp)...")
     try:
         driver.execute_script("""
-            // 1. สั่งลบ Elements ทิ้งไปจากหน้าจอ
-            var elementsToDestroy = document.querySelectorAll(
-                '.v-modal, .el-dialog__wrapper, .modal-backdrop, [role="dialog"], ' +
+            var crispElements = document.querySelectorAll(
                 '#crisp-chat-box, .crisp-client, [class^="crisp-"], [id^="crisp-"], ' +
-                '.el-drawer__wrapper, .el-drawer, div[class*="drawer"], section[class*="drawer"], aside[class*="drawer"]'
+                'iframe[title*="chat" i], iframe[src*="crisp"], iframe[id*="crisp"]'
             );
-            elementsToDestroy.forEach(function(el) { el.remove(); });
-            
-            // 2. ถ้ามันยังไม่ยอมโดนลบ ให้สั่งซ่อนตัวมันด้วยการตั้งค่า CSS display: none ให้หมด!
-            var elementsToHide = document.querySelectorAll('.el-drawer__wrapper, .el-drawer, [class*="drawer"]');
-            elementsToHide.forEach(function(el) { el.style.display = 'none'; el.style.width = '0px'; });
-            
-            // 3. คืนค่าการเลื่อนหน้าจอและจัดหน้า Layout ใหม่
-            document.body.style.overflow = 'auto';
-            var layouts = document.querySelectorAll('.el-main, .main-container');
-            layouts.forEach(function(el) { el.style.paddingRight = '0px'; el.style.marginRight = '0px'; });
+            crispElements.forEach(function(el) { el.remove(); });
         """)
-        print("🧼 ล้างและบังคับซ่อนแถบแนะนำการใช้งานฝั่งขวา + กล่องแชท Crisp เกลี้ยงจอแน่นอน!")
-        time.sleep(3)
-    except Exception as ce:
-        print(f"เกิดปัญหาในระบบล้างหน้าจอ: {str(ce)}")
-    
-    # ดักรอปุ่มส่งออกไฟล์
+        print("-> ลบกล่องแชท Crisp เรียบร้อย")
+        time.sleep(1)
+    except Exception:
+        pass
+
+    print("🧼 เริ่มกระบวนการเคลียร์ป๊อปอัป (ซ่อนแถบคู่มือฝั่งขวา)...")
+    try:
+        driver.execute_script("""
+            document.querySelectorAll('.el-drawer__wrapper, .el-drawer, .v-modal').forEach(el => el.remove());
+            document.body.style.overflow = 'auto';
+        """)
+        print("-> บังคับลบแถบคู่มือฝั่งขวาเรียบร้อย!")
+        time.sleep(2)
+    except Exception:
+        pass
+
+    # 4. ดักรอและกดปุ่มส่งออกไฟล์สีฟ้าบนตารางรายงานของจริงด้วยพลัง JavaScript
     print("กำลังดักรอปุ่ม 'ส่งออกไฟล์' ปรากฏ...")
     export_button = wait.until(EC.presence_of_element_located((
-        By.XPATH, "//*[contains(text(), 'ส่งออกไฟล์')] | //*[contains(text(), 'ส่งออก')] | //*[contains(@id, 'Export')] | //button[contains(@class, 'export')]"
+        By.XPATH, "//*[contains(text(), 'ส่งออกไฟล์')]"
     )))
-    time.sleep(3)
     
-    driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "1_sales_before_click.png"))
-    print("📸 บันทึกภาพหน้าจอก่อนกดปุ่มส่งออกไฟล์เรียบร้อย")
+    try:
+        driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "1_sales_before_click.png"))
+        print("📸 บันทึกภาพหน้าจอก่อนกดปุ่มส่งออกไฟล์เรียบร้อย")
+    except Exception:
+        pass
 
-    print("กำลังใช้ JavaScript สั่งกดส่งออกไฟล์ Excel...")
+    print("กำลังส่งคำสั่ง JavaScript คลิกปุ่มส่งออกไฟล์...")
     driver.execute_script("arguments[0].click();", export_button)
     
-    # วนลูปรอให้ไฟล์ดาวน์โหลดตกลงมาในเครื่อง (สูงสุด 60 วินาที)
+    # 5. วนลูปรอให้ไฟล์ดาวน์โหลดตกลงมาในเครื่อง (สูงสุด 60 วินาที)
     print("⏱️ กำลังตรวจสอบโฟลเดอร์และรอไฟล์ดาวน์โหลดเข้าดิสก์...")
     downloaded = False
     for i in range(12): 
         time.sleep(5)
         files = os.listdir(DOWNLOAD_DIR)
-        valid_files = [f for f in files if not f.endswith('.crdownload')]
+        valid_files = [f for f in files if not f.endswith('.crdownload') and f != '']
         if valid_files:
             print(f"พบไฟล์ดาวน์โหลดในรอบที่ {i+1}: {valid_files}")
             downloaded = True
             break
         print(f"รอบที่ {i+1}: ยังไม่พบไฟล์ กำลังรอต่อ...")
     
-    driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "2_sales_after_click.png"))
-    print("📸 บันทึกภาพหน้าจอหลังกระบวนการดาวน์โหลดเรียบร้อย")
+    try:
+        driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "2_sales_after_click.png"))
+        print("📸 บันทึกภาพหน้าจอหลังกระบวนการดาวน์โหลดเรียบร้อย")
+    except Exception:
+        pass
     
     # ตรวจสอบไฟล์ในเครื่องอีกรอบหลังจูลูป
     files = os.listdir(DOWNLOAD_DIR)
