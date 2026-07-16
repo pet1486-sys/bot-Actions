@@ -43,9 +43,9 @@ jobs:
 
       # 5. สั่งรันสคริปต์ Python เพื่อดาวน์โหลดไฟล์และส่งเข้า BigQuery ทันที
       - name: Run Python Script
-        run: python silom_sku.py[cite: 3]
+        run: python silom_sku.py
 
-      # 🌟 6. บันทึกและส่งไฟล์เวลาอัปเดตจาก BigQuery กลับเข้า GitHub Repo อัตโนมัติ (เพิ่มใหม่)
+      # 🌟 6. บันทึกและส่งไฟล์เวลาอัปเดตจาก BigQuery กลับเข้า GitHub Repo อัตโนมัติ
       - name: Commit and Push Last Update Time
         run: |
           if [ -f sku_last_update.txt ]; then
