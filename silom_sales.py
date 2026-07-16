@@ -93,26 +93,45 @@ try:
     driver.execute_script("arguments[0].click();", submenu_sales_detail)
     
     print("กำลังโหลดหน้ายอดขายและรอเคลียร์สิ่งกีดขวาง...")
-    time.sleep(8)
+    time.sleep(10) # เพิ่มเวลารอให้หน้านี้โหลดเสร็จเต็มที่ก่อนจัดการป๊อปอัป
 
-    # สั่งลบกล่องแชท Crisp และแถบวิดีโอแนะนำขวาขวาออกไปให้หมด
+    # 🌟 [ปรับปรุงใหม่] พยายามคลิกปุ่มกากบาทปิด (X) ของแถบคู่มือขวาขวาก่อน
+    try:
+        print("กำลังพยายามหาและกดปุ่มกากบาท (X) เพื่อปิดแถบคู่มือฝั่งขวา...")
+        close_drawer_btn = driver.find_elements(By.XPATH, "//button[contains(@class, 'el-drawer__close-btn')] | //i[contains(@class, 'el-icon-close')]")
+        if close_drawer_btn:
+            driver.execute_script("arguments[0].click();", close_drawer_btn[0])
+            print("กดปุ่มปิดแถบคู่มือเรียบร้อย")
+            time.sleep(2)
+    except Exception as ex:
+        print(f"กดปุ่มกากบาทไม่สำเร็จ จะใช้คำสั่งลบทิ้งแทน: {str(ex)}")
+
+    # 🌟 [ปรับปรุงใหม่] ลบและซ่อนทุกคลาสที่มีโอกาสเกี่ยวข้องกับแผงข้างและกล่องแชทแบบจัดเต็ม
     try:
         driver.execute_script("""
+            // 1. สั่งลบ Elements ทิ้งไปจากหน้าจอ
             var elementsToDestroy = document.querySelectorAll(
                 '.v-modal, .el-dialog__wrapper, .modal-backdrop, [role="dialog"], ' +
                 '#crisp-chat-box, .crisp-client, [class^="crisp-"], [id^="crisp-"], ' +
-                '.el-drawer__wrapper, .el-drawer, [class*="drawer"], [class*="help"]'
+                '.el-drawer__wrapper, .el-drawer, div[class*="drawer"], section[class*="drawer"], aside[class*="drawer"]'
             );
             elementsToDestroy.forEach(function(el) { el.remove(); });
+            
+            // 2. ถ้ามันยังไม่ยอมโดนลบ ให้สั่งซ่อนตัวมันด้วยการตั้งค่า CSS display: none ให้หมด!
+            var elementsToHide = document.querySelectorAll('.el-drawer__wrapper, .el-drawer, [class*="drawer"]');
+            elementsToHide.forEach(function(el) { el.style.display = 'none'; el.style.width = '0px'; });
+            
+            // 3. คืนค่าการเลื่อนหน้าจอและจัดหน้า Layout ใหม่
             document.body.style.overflow = 'auto';
             var layouts = document.querySelectorAll('.el-main, .main-container');
             layouts.forEach(function(el) { el.style.paddingRight = '0px'; el.style.marginRight = '0px'; });
         """)
-        print("🧼 ล้างแถบแนะนำการใช้งานฝั่งขวาและกล่องแชท Crisp เกลี้ยงจอแล้ว!")
+        print("🧼 ล้างและบังคับซ่อนแถบแนะนำการใช้งานฝั่งขวา + กล่องแชท Crisp เกลี้ยงจอแน่นอน!")
+        time.sleep(3)
     except Exception as ce:
-        print(f"ไม่สามารถล้างสิ่งกีดขวางได้แต่จะพยายามทำงานต่อ: {str(ce)}")
+        print(f"เกิดปัญหาในระบบล้างหน้าจอ: {str(ce)}")
     
-    # 🌟 [แก้ไขจุดนี้] เปลี่ยนมาใช้การเชื่อมเงื่อนไข XPATH ด้วยเครื่องหมาย | ที่ถูกต้องตามหลักการ
+    # ดักรอปุ่มส่งออกไฟล์
     print("กำลังดักรอปุ่ม 'ส่งออกไฟล์' ปรากฏ...")
     export_button = wait.until(EC.presence_of_element_located((
         By.XPATH, "//*[contains(text(), 'ส่งออกไฟล์')] | //*[contains(text(), 'ส่งออก')] | //*[contains(@id, 'Export')] | //button[contains(@class, 'export')]"
@@ -141,7 +160,7 @@ try:
     driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "2_sales_after_click.png"))
     print("📸 บันทึกภาพหน้าจอหลังกระบวนการดาวน์โหลดเรียบร้อย")
     
-    # ตรวจสอบไฟล์ในเครื่องอีกรอบหลังจบลูป
+    # ตรวจสอบไฟล์ในเครื่องอีกรอบหลังจูลูป
     files = os.listdir(DOWNLOAD_DIR)
     if downloaded and files:
         latest_file = max([os.path.join(DOWNLOAD_DIR, f) for f in files], key=os.path.getctime)
