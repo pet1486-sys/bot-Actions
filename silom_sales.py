@@ -95,21 +95,16 @@ try:
     print("กำลังโหลดหน้ายอดขายและรอเคลียร์สิ่งกีดขวาง...")
     time.sleep(8)
 
-    # 🌟 [จุดแก้หลัก] สั่งลบกล่องแชท Crisp และแถบวิดีโอแนะนำขวาขวาออกไปให้หมดแบบถอนรากถอนโคน
+    # สั่งลบกล่องแชท Crisp และแถบวิดีโอแนะนำขวาขวาออกไปให้หมด
     try:
         driver.execute_script("""
-            // สั่งค้นหาแถบคู่มือฝั่งขวา (เช็กจากคลาสที่เป็นพวก el-drawer หรือคลาสวิดีโอแนะนำ) และกล่องแชท
             var elementsToDestroy = document.querySelectorAll(
                 '.v-modal, .el-dialog__wrapper, .modal-backdrop, [role="dialog"], ' +
                 '#crisp-chat-box, .crisp-client, [class^="crisp-"], [id^="crisp-"], ' +
                 '.el-drawer__wrapper, .el-drawer, [class*="drawer"], [class*="help"]'
             );
             elementsToDestroy.forEach(function(el) { el.remove(); });
-            
-            // ปลดล็อกการสโครลจอ
             document.body.style.overflow = 'auto';
-            
-            // บังคับให้หน้าเว็บปรับการแสดงผล Layout คืนกลับมา (ถ้าจำเป็น)
             var layouts = document.querySelectorAll('.el-main, .main-container');
             layouts.forEach(function(el) { el.style.paddingRight = '0px'; el.style.marginRight = '0px'; });
         """)
@@ -117,10 +112,10 @@ try:
     except Exception as ce:
         print(f"ไม่สามารถล้างสิ่งกีดขวางได้แต่จะพยายามทำงานต่อ: {str(ce)}")
     
-    # ดักรอปุ่มส่งออกไฟล์
+    # 🌟 [แก้ไขจุดนี้] เปลี่ยนมาใช้การเชื่อมเงื่อนไข XPATH ด้วยเครื่องหมาย | ที่ถูกต้องตามหลักการ
     print("กำลังดักรอปุ่ม 'ส่งออกไฟล์' ปรากฏ...")
     export_button = wait.until(EC.presence_of_element_located((
-        By.XPATH, "//*[contains(text(), 'ส่งออก')] or //*[contains(@id, 'Export')] or //*[contains(@class, 'export')]"
+        By.XPATH, "//*[contains(text(), 'ส่งออกไฟล์')] | //*[contains(text(), 'ส่งออก')] | //*[contains(@id, 'Export')] | //button[contains(@class, 'export')]"
     )))
     time.sleep(3)
     
