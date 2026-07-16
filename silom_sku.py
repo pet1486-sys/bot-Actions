@@ -27,10 +27,10 @@ for folder in [DOWNLOAD_DIR, SCREENSHOT_DIR]:
 
 file_path = os.path.join(DOWNLOAD_DIR, "SKU.xlsx")
 
-# ตั้งค่า Chrome Options สำหรับทำงานบน GitHub Actions
+# ตั้งค่า Chrome Options สำหรับทำงานบน GitHub Actions (Headless)
 chrome_options = webdriver.ChromeOptions()
 prefs = {
-    "download.default_directory": os.path.abspath(DOWNLOAD_DIR), # บังคับดาวน์โหลดลงโฟลเดอร์ stock_data
+    "download.default_directory": os.path.abspath(DOWNLOAD_DIR), 
     "download.prompt_for_download": False,        
     "download.directory_upgrade": True,
     "safebrowsing.enabled": True,
@@ -43,14 +43,14 @@ chrome_options.add_experimental_option("prefs", prefs)
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
-chrome_options.add_argument("--window-size=1920,1080")
+chrome_options.add_argument("--window-size=1440,900")
 
 print("กำลังสั่งเปิด Chrome (Headless) บน GitHub Actions...")
 driver = webdriver.Chrome(options=chrome_options)
 wait = WebDriverWait(driver, 20)
 
 # ==========================================================
-# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium
+# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium (ตรรกะเสถียรสูง)
 # ==========================================================
 try:
     print("กำลังเปิดหน้าเว็บไซต์ Silom POS...")
@@ -73,53 +73,89 @@ try:
     print("กำลังรอโหลดหน้า Dashboard...")
     time.sleep(8)
     
+    print("🧼 เริ่มกระบวนการเคลียร์หน้าจอและสิ่งกีดขวาง...")
     try:
         driver.execute_script("""
-            var modals = document.querySelectorAll('.v-modal, .el-dialog__wrapper, .modal-backdrop, [role="dialog"]');
+            var modals = document.querySelectorAll('.v-modal, .el-dialog__wrapper, .modal-backdrop, [role="dialog"], .el-drawer__wrapper, .el-drawer');
             modals.forEach(function(el) { el.remove(); });
             document.body.style.overflow = 'auto';
-            var chats = document.querySelectorAll('#crisp-chat-box, .crisp-client, [class^="cc-"]');
+            var chats = document.querySelectorAll('#crisp-chat-box, .crisp-client, [class^="cc-"], [class^="crisp-"]');
             chats.forEach(function(el) { el.remove(); });
         """)
-        print("ล้างสิ่งกีดขวางหน้าจอเรียบร้อย")
+        print("-> ล้างสิ่งกีดขวางหน้าจอเรียบร้อย")
+        time.sleep(1)
     except Exception:
         pass
 
-    print("กำลังคลิกหัวข้อหลัก 'สินค้าคงคลัง'...")
-    menu_inventory = wait.until(EC.element_to_be_clickable((
+    # 1. คลิกหัวข้อหลัก 'สินค้าคงคลัง' ด้วย JavaScript
+    print("⚡ [JS] กำลังคลิกหัวข้อหลัก 'สินค้าคงคลัง'...")
+    menu_inventory = wait.until(EC.presence_of_element_located((
         By.XPATH, "//*[contains(@class, 'sidebar') or contains(@class, 'menu')]//*[contains(text(), 'สินค้าคงคลัง')]"
     )))
-    menu_inventory.click()
-    time.sleep(2)
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", menu_inventory)
+    time.sleep(1)
+    driver.execute_script("arguments[0].click();", menu_inventory)
+    time.sleep(3)
     
-    print("กำลังคลิกเมนูย่อย 'สินค้าคงเหลือตาม SKU'...")
-    submenu_sku = wait.until(EC.element_to_be_clickable((
+    # 2. คลิกเมนูย่อย 'สินค้าคงเหลือตาม SKU' ด้วย JavaScript
+    print("⚡ [JS] กำลังคลิกเมนูย่อย 'สินค้าคงเหลือตาม SKU'...")
+    submenu_sku = wait.until(EC.presence_of_element_located((
         By.XPATH, "//*[contains(@class, 'sidebar') or contains(@class, 'menu')]//*[contains(text(), 'สินค้าคงเหลือตาม SKU')]"
     )))
-    submenu_sku.click()
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submenu_sku)
+    time.sleep(1)
+    driver.execute_script("arguments[0].click();", submenu_sku)
     
+    print("🎯 ถึงหน้าตารางรายงาน SKU แล้ว รอระบบดึงข้อมูล...")
+    time.sleep(8)
+    
+    # 3. ดักรอปุ่มส่งออกไฟล์
     print("กำลังดักรอปุ่ม 'ส่งออกไฟล์' ปรากฏ...")
     export_button = wait.until(EC.presence_of_element_located((By.ID, "SKUInventoryExportButton")))
-    time.sleep(5)
+    time.sleep(2)
     
-    driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "1_before_click.png"))
-    print("📸 บันทึกภาพหน้าจอก่อนกดปุ่มส่งออกไฟล์เรียบร้อย")
+    try:
+        driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "1_before_click.png"))
+        print("📸 บันทึกภาพหน้าจอก่อนกดปุ่มส่งออกไฟล์เรียบร้อย")
+    except Exception:
+        pass
 
+    # 4. สั่งคลิกส่งออกไฟล์ด้วย JavaScript ทะลวงมิติ
     print("กำลังใช้ JavaScript สั่งกดส่งออกไฟล์ Excel...")
     driver.execute_script("arguments[0].click();", export_button)
+    time.sleep(3) # รอหน้าเว็บขยับแป๊บหนึ่ง เผื่อระบบพ่นคิวชน
+
+    # 🌟 [ระบบกันเหนียว] ดักจับกล่อง Alert 3 นาทีเพื่อไม่ให้บอทค้าง
+    try:
+        alert = driver.switch_to.alert
+        alert_text = alert.text
+        print(f"⚠️ เจอแจ้งเตือนจากหน้าเว็บ SKU: {alert_text}")
+        alert.accept()
+        print("-> บอตช่วยกดปิดป๊อปอัปแจ้งเตือนเรียบร้อยแล้ว!")
+    except Exception:
+        pass
     
-    print("⏱️ รอระบบบันทึกไฟล์ลงดิสก์บนเซิร์ฟเวอร์ 20 วินาทีเพื่อความชัวร์...")
-    time.sleep(20)
+    # 5. วนลูปรอให้ไฟล์ตกลงเครื่องจริง
+    print("⏱️ วนลูปรอตรวจสอบไฟล์รายงาน SKU ตกลงมาในโฟลเดอร์...")
+    downloaded = False
+    for i in range(12):
+        time.sleep(5)
+        files = os.listdir(DOWNLOAD_DIR)
+        valid_files = [f for f in files if not f.endswith('.crdownload') and f != '']
+        if valid_files:
+            print(f"พบไฟล์ดาวน์โหลดในรอบที่ {i+1}: {valid_files}")
+            downloaded = True
+            break
+        print(f"รอบที่ {i+1}: ยังไม่พบไฟล์ SKU กำลังรอต่อ...")
+        
+    try:
+        driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "2_after_click.png"))
+        print("📸 บันทึกภาพหน้าจอหลังกระบวนการดาวน์โหลดเรียบร้อย")
+    except Exception:
+        pass
     
-    driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "2_after_click.png"))
-    print("📸 บันทึกภาพหน้าจอหลังกดปุ่มส่งออกไฟล์เรียบร้อย")
-    
-    # ตรวจสอบไฟล์ที่ดาวน์โหลดมา
     files = os.listdir(DOWNLOAD_DIR)
-    print(f"ไฟล์ที่พบในโฟลเดอร์ดาวน์โหลด: {files}")
-    
-    # เปลี่ยนชื่อไฟล์ล่าสุดให้กลายเป็น SKU.xlsx
-    if files:
+    if downloaded and files:
         latest_file = max([os.path.join(DOWNLOAD_DIR, f) for f in files], key=os.path.getctime)
         if latest_file != file_path:
             os.rename(latest_file, file_path)
@@ -140,15 +176,13 @@ finally:
 
 
 # ==========================================================
-# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery ด้วย Pandas
+# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery (เวอร์ชันเคลียร์วันซ้ำ)
 # ==========================================================
 print("\n--- เริ่มกระบวนการส่งข้อมูลเข้า Google Cloud BigQuery ด้วย Pandas ---")
 
-# 1. ใช้ Pandas เปิดอ่านไฟล์ Excel ข้ามแถวขยะ 7 แถวแรก
 print(f"กำลังเปิดอ่านข้อมูลภายในไฟล์ Excel: {file_path}")
 df = pd.read_excel(file_path, header=7)
 
-# 🌟 จัดการลบอักขระพิเศษออกจากชื่อคอลัมน์ (เช่น จุด, วงเล็บ, ช่องว่าง) เพื่อไม่ให้ BigQuery ปฏิเสธ
 df.columns = (
     df.columns.astype(str)
     .str.replace(' ', '_')
@@ -158,18 +192,32 @@ df.columns = (
     .str.replace(')', '')
 )
 
-# 🌟 เพิ่มคอลัมน์ "วันเวลาที่รันบอท" (Run_Date) อ้างอิงเวลาประเทศไทย GMT+7
+# คำนวณเวลาไทยปัจจุบันสำหรับระบุวันเก็บข้อมูล
 th_time = datetime.utcnow() + timedelta(hours=7)
 df['Run_Date'] = th_time.strftime('%Y-%m-%d %H:%M:%S')
 
-# 2. ทำการอัปโหลดตารางขึ้นไปที่ BigQuery ตรงๆ
 table_id = "stock_data.sku_list"
 project_id = "northern-eon-470602-a2"
 full_table_path = f"{project_id}.{table_id}"
 
-print(f"กำลังส่งข้อมูลจำนวน {len(df)} แถว เข้าสู่ BigQuery ตาราง {full_table_path}...")
+# 🌟 [เพิ่มใหม่ - ป้องกันข้อมูลซ้ำประจำวัน] สั่งลบข้อมูลเก่าของ "วันนี้" ออกก่อน
+try:
+    client = bigquery.Client(project=project_id)
+    today_str = th_time.strftime('%Y-%m-%d')
+    
+    delete_query = f"""
+        DELETE FROM `{full_table_path}`
+        WHERE DATE(Run_Date) = '{today_str}';
+    """
+    print(f"🧹 กำลังเคลียร์ข้อมูลเก่าของวันที่ {today_str} ใน BigQuery (sku_list) เพื่อป้องกันการบันทึกซ้ำ...")
+    query_job = client.query(delete_query)
+    query_job.result()  # รอให้การลบทำงานเสร็จสมบูรณ์
+    print("-> ลบข้อมูล SKU รอบเดิมของวันนี้เรียบร้อยแล้ว!")
+except Exception as err:
+    print(f"⚠️ ไม่สามารถลบข้อมูลเก่าได้ (อาจเป็นเพราะตารางยังไม่มีหรือรันครั้งแรก): {str(err)}")
 
-# สั่งอัปโหลดข้อมูล (ถ้าไม่มีตารางจะสร้างให้ ถ้ามีอยู่แล้วจะใช้การต่อท้ายข้อมูล)
+# ทำการเติมข้อมูลชุดล่าสุดเข้าไปแทนที่แบบคลีนๆ
+print(f"กำลังส่งข้อมูลจำนวน {len(df)} แถว เข้าสู่ BigQuery ตาราง {full_table_path}...")
 df.to_gbq(
     destination_table=table_id,
     project_id=project_id,
@@ -177,16 +225,15 @@ df.to_gbq(
     progress_bar=False
 )
 
-print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลถูกเพิ่มเข้าตาราง {full_table_path} เรียบร้อยแล้วครับ")
+print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูล SKU ถูกรีเฟรชเป็นรุ่นล่าสุดเรียบร้อยครับ")
 
 
 # ==========================================================
-# 🌟 ส่วนที่ 3: ดึงเวลาอัปเดตล่าสุดจาก BigQuery และเซฟลงไฟล์ข้อความ (เพิ่มใหม่)
+# ส่วนที่ 3: ดึงเวลาอัปเดตล่าสุดจาก BigQuery และเซฟลงไฟล์ข้อความ
 # ==========================================================
 print("\n--- เริ่มกระบวนการดึงเวลาแก้ไขล่าสุดจาก BigQuery เพื่อส่งให้หน้าเว็บ ---")
 try:
     client = bigquery.Client(project=project_id)
-    # คิวรีดึง Metadata เวลาแก้ไขล่าสุดของตารางจริงจาก BigQuery
     query = f"""
         SELECT TIMESTAMP_MILLIS(last_modified_time) AS last_updated
         FROM `{project_id}.stock_data.__TABLES__`
@@ -196,12 +243,10 @@ try:
     results = query_job.result()
     
     for row in results:
-        # แปลงเวลาจาก UTC เป็นเวลาไทย (+7 ชั่วโมง)
         utc_time = row.last_updated
         thai_time = utc_time + timedelta(hours=7)
         time_str = thai_time.strftime('%Y-%m-%d %H:%M:%S')
         
-        # เขียนเวลาลงไฟล์ข้อความเพื่อรอให้ GitHub Push ขึ้นระบบ
         with open("sku_last_update.txt", "w", encoding="utf-8") as f:
             f.write(time_str)
         print(f"🎯 ดึงข้อมูลสำเร็จ! เวลาแก้ไขจริงใน BigQuery คือ: {time_str} น. (บันทึกลงไฟล์แล้ว)")
