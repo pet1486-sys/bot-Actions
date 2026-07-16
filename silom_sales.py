@@ -124,32 +124,24 @@ try:
     except Exception:
         pass
 
-    # 4. ดักรอและกดปุ่มส่งออกไฟล์สีฟ้าบนตารางรายงานของจริงด้วยพลัง JavaScript
+     # 4. ดักรอและกดปุ่มส่งออกไฟล์สีฟ้าบนตารางรายงานของจริง
     print("กำลังดักรอปุ่ม 'ส่งออกไฟล์' ปรากฏ...")
+    # เน้นหาจาก Element สีฟ้าที่มีคำว่า 'ส่งออกไฟล์' แบบตรงตัวบนหน้าจอ
     export_button = wait.until(EC.presence_of_element_located((
         By.XPATH, "//*[contains(text(), 'ส่งออกไฟล์')]"
     )))
     
-    try:
-        driver.save_screenshot(os.path.join(SCREENSHOT_DIR, "1_sales_before_click.png"))
-        print("📸 บันทึกภาพหน้าจอก่อนกดปุ่มส่งออกไฟล์เรียบร้อย")
-    except Exception:
-        pass
-
-    print("กำลังส่งคำสั่ง JavaScript คลิกปุ่มส่งออกไฟล์...")
+    print("กำลังส่งคำสั่งคลิกปุ่มส่งออกไฟล์...")
     driver.execute_script("arguments[0].click();", export_button)
-    time.sleep(3) # รอให้ระบบเว็บตอบสนองแป๊บหนึ่ง เผื่อมีหน้าต่างเตือนเด้งสวนขึ้นมา
-
-    # 🌟 [ระบบกันเหนียว] ดักจับกล่องข้อความเตือนภัย 3 นาที (Browser Alert)
+    # ดัก Alert (ถ้ามันขึ้น)
     try:
+        time.sleep(2)
         alert = driver.switch_to.alert
-        alert_text = alert.text
-        print(f"⚠️ เจอแจ้งเตือนจากหน้าเว็บ: {alert_text}")
-        alert.accept() # บังคับกดปุ่ม OK / ยอมรับ ทันที เพื่อปิดหน้าต่างเตือนภัย
-        print("-> บอตช่วยกดปิดป๊อปอัปแจ้งเตือนเรียบร้อยแล้ว!")
-    except Exception:
-        # ถ้าไม่มีแจ้งเตือนขึ้นมา (กดทีเดียวผ่านปกติ) ก็จะปล่อยข้ามส่วนนี้ไปอย่างนุ่มนวล
-        pass
+        print(f"⚠️ เจอ Alert: {alert.text}")
+        alert.accept()
+    except:
+        print("✅ ไม่เจอ Alert กดผ่านฉลุย!")
+
     
     # 5. วนลูปรอให้ไฟล์ดาวน์โหลดตกลงมาในเครื่อง (สูงสุด 60 วินาที)
     print("⏱ *กำลังตรวจสอบโฟลเดอร์และรอไฟล์ดาวน์โหลดเข้าดิสก์...")
