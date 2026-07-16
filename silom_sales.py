@@ -95,25 +95,32 @@ try:
     print("กำลังโหลดหน้ายอดขายและรอเคลียร์สิ่งกีดขวาง...")
     time.sleep(8)
 
-    # 🌟 [จุดแก้ไขสำคัญ] สั่งลบกล่องแชท Crisp แบบขุดรากถอนโคน ป้องกันการบังปุ่มส่งออก
+    # 🌟 [จุดแก้หลัก] สั่งลบกล่องแชท Crisp และแถบวิดีโอแนะนำขวาขวาออกไปให้หมดแบบถอนรากถอนโคน
     try:
         driver.execute_script("""
+            // สั่งค้นหาแถบคู่มือฝั่งขวา (เช็กจากคลาสที่เป็นพวก el-drawer หรือคลาสวิดีโอแนะนำ) และกล่องแชท
             var elementsToDestroy = document.querySelectorAll(
                 '.v-modal, .el-dialog__wrapper, .modal-backdrop, [role="dialog"], ' +
                 '#crisp-chat-box, .crisp-client, [class^="crisp-"], [id^="crisp-"], ' +
-                '.crisp-1sp403d, .crisp-1lyl73b'
+                '.el-drawer__wrapper, .el-drawer, [class*="drawer"], [class*="help"]'
             );
             elementsToDestroy.forEach(function(el) { el.remove(); });
+            
+            // ปลดล็อกการสโครลจอ
             document.body.style.overflow = 'auto';
+            
+            // บังคับให้หน้าเว็บปรับการแสดงผล Layout คืนกลับมา (ถ้าจำเป็น)
+            var layouts = document.querySelectorAll('.el-main, .main-container');
+            layouts.forEach(function(el) { el.style.paddingRight = '0px'; el.style.marginRight = '0px'; });
         """)
-        print("🧼 ล้างกล่องแชท Crisp และสิ่งกีดขวางออกจากจอเรียบร้อยแล้ว!")
+        print("🧼 ล้างแถบแนะนำการใช้งานฝั่งขวาและกล่องแชท Crisp เกลี้ยงจอแล้ว!")
     except Exception as ce:
-        print(f"ไม่สามารถล้างป๊อปอัปได้แต่จะพยายามทำงานต่อ: {str(ce)}")
+        print(f"ไม่สามารถล้างสิ่งกีดขวางได้แต่จะพยายามทำงานต่อ: {str(ce)}")
     
     # ดักรอปุ่มส่งออกไฟล์
     print("กำลังดักรอปุ่ม 'ส่งออกไฟล์' ปรากฏ...")
-    export_button = wait.until(EC.element_to_be_clickable((
-        By.XPATH, "//*[contains(text(), 'ส่งออกไฟล์') or contains(@id, 'Export') or contains(@class, 'export')]"
+    export_button = wait.until(EC.presence_of_element_located((
+        By.XPATH, "//*[contains(text(), 'ส่งออก')] or //*[contains(@id, 'Export')] or //*[contains(@class, 'export')]"
     )))
     time.sleep(3)
     
