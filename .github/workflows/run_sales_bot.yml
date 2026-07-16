@@ -1,0 +1,52 @@
+name: Run Sales Data Bot
+
+# ตั้งค่าเหตุการณ์ในการสั่งให้บอททำงาน
+on:
+  schedule:
+    - cron: '0 1 * * *' # 🕒 ตั้งเวลาให้บอทรันอัตโนมัติทุกวันตอนตี 1 UTC (ปรับเวลาไม่ให้ชนกับบอตตัวแรก)
+  workflow_dispatch:     # 🔘 เพิ่มปุ่มกดรันแมนนวลเองได้จากหน้าเว็บ GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # ใช้ระบบปฏิบัติการ Linux ในการรันบอทชั่วคราว
+    
+    steps:
+      # 1. ดึงโค้ดทั้งหมดจาก Repository มาเตรียมไว้บนบอท
+      - name: Checkout repository code
+        uses: actions/checkout@v3
+
+      # 2. ติดตั้งระบบ Python รุ่น 3.9 บนบอท
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      # 3. ติดตั้ง Chrome Browser และ Library พร้อมอัปเดตเวอร์ชันล่าสุด
+      - name: Install Chrome and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade google-cloud-bigquery
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # 4. ดึง JSON Key จาก GitHub Secrets มายืนยันตัวตนกับ Google Cloud
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      # 5. สั่งรันสคริปต์ Python ตัวใหม่ (ยอดขาย)
+      - name: Run Python Script
+        run: python silom_sales.py
+
+      # 🌟 6. บันทึกและส่งไฟล์เวลาอัปเดตของยอดขายกลับเข้า GitHub Repo อัตโนมัติ
+      - name: Commit and Push Last Update Time
+        run: |
+          if [ -f sales_last_update.txt ]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add sales_last_update.txt
+            git commit -m "Auto-update sales last modified time from BigQuery [skip ci]" || true
+            git push
+          fi
