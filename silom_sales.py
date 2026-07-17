@@ -51,7 +51,7 @@ driver = webdriver.Chrome(options=chrome_options)
 wait = WebDriverWait(driver, 20)
 
 # ==========================================================
-# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium
+# ส่วนที่ 1: ดาวน์โหลดไฟล์ด้วย Selenium (เวอร์ชันดักจับ Alert ล่าสุด)
 # ==========================================================
 try:
     print("กำลังเปิดหน้าเว็บไซต์ Silom POS...")
@@ -124,29 +124,54 @@ try:
     except Exception:
         pass
 
-     # 4. ดักรอและกดปุ่มส่งออกไฟล์สีฟ้าบนตารางรายงานของจริง
+    # 4. ดักรอและกดปุ่มส่งออกไฟล์สีฟ้าบนตารางรายงานของจริง
     print("กำลังดักรอปุ่ม 'ส่งออกไฟล์' ปรากฏ...")
-    # เน้นหาจาก Element สีฟ้าที่มีคำว่า 'ส่งออกไฟล์' แบบตรงตัวบนหน้าจอ
     export_button = wait.until(EC.presence_of_element_located((
         By.XPATH, "//*[contains(text(), 'ส่งออกไฟล์')]"
     )))
     
     print("กำลังส่งคำสั่งคลิกปุ่มส่งออกไฟล์...")
     driver.execute_script("arguments[0].click();", export_button)
-    # ดัก Alert (ถ้ามันขึ้น)
-    try:
-        time.sleep(2)
-        alert = driver.switch_to.alert
-        print(f"⚠️ เจอ Alert: {alert.text}")
-        alert.accept()
-    except:
-        print("✅ ไม่เจอ Alert กดผ่านฉลุย!")
-
     
-    # 5. วนลูปรอให้ไฟล์ดาวน์โหลดตกลงมาในเครื่อง (สูงสุด 60 วินาที)
+    # 🛡️ บล็อกดักจับ Alert และสั่งยิงซ้ำหากเจอคิวงานค้างค้างบน GitHub
+    try:
+        time.sleep(3) 
+        alert = driver.switch_to.alert
+        alert_text = alert.text
+        print(f"⚠️ เจอ Alert ของระบบ: {alert_text}")
+        alert.accept() 
+        
+        if "ลองใหม่อีกครั้ง" in alert_text or "เตรียมไฟล์" in alert_text:
+            waiting_time = 60  
+            print(f"⏳ ระบบหลังบ้านยังไม่พร้อม... บอทจะหยุดรอ {waiting_time} วินาที ก่อนสั่งกดส่งออกใหม่อีกครั้ง...")
+            time.sleep(waiting_time)
+            
+            print("🧼 เคลียร์แถบคู่มือฝั่งขวาซ้ำเพื่อความชัวร์...")
+            driver.execute_script("""
+                document.querySelectorAll('.el-drawer__wrapper, .el-drawer, .v-modal').forEach(el => el.remove());
+                document.body.style.overflow = 'auto';
+            """)
+            time.sleep(2)
+            
+            print("🔄 ยิงคำสั่ง JavaScript คลิกปุ่ม 'ส่งออกไฟล์' ซ้ำรอบที่ 2...")
+            export_button = driver.find_element(By.XPATH, "//*[contains(text(), 'ส่งออกไฟล์')]")
+            driver.execute_script("arguments[0].click();", export_button)
+            
+            try:
+                time.sleep(2)
+                alert2 = driver.switch_to.alert
+                print(f"⚠️ เจอ Alert รอบสอง: {alert2.text}")
+                alert2.accept()
+            except:
+                print("✅ รอบสองไม่เจอ Alert เพิ่มเติม ไหลลื่น!")
+                
+    except Exception as e:
+        print("✅ ไม่เจอ Alert แจ้งเตือนคิวงานค้าง ยิงคำสั่งดาวน์โหลดสำเร็จในรอบแรก!")
+
+    # 5. วนลูปรอให้ไฟล์ดาวน์โหลดตกลงมาในเครื่อง
     print("⏱ *กำลังตรวจสอบโฟลเดอร์และรอไฟล์ดาวน์โหลดเข้าดิสก์...")
     downloaded = False
-    for i in range(12): 
+    for i in range(18): # 18 * 5 = 90 วินาที
         time.sleep(5)
         files = os.listdir(DOWNLOAD_DIR)
         valid_files = [f for f in files if not f.endswith('.crdownload') and f != '']
@@ -154,6 +179,15 @@ try:
             print(f"พบไฟล์ดาวน์โหลดในรอบที่ {i+1}: {valid_files}")
             downloaded = True
             break
+            
+        if i == 5 and not downloaded:
+            print("🔍 ผ่านไป 30 วินาทียังไม่เจอไฟล์ บอทลองยิง JavaScript คลิกปุ่มส่งออกซ้ำให้อีกครั้ง...")
+            try:
+                export_button = driver.find_element(By.XPATH, "//*[contains(text(), 'ส่งออกไฟล์')]")
+                driver.execute_script("arguments[0].click();", export_button)
+            except:
+                pass
+                
         print(f"รอบที่ {i+1}: ยังไม่พบไฟล์ กำลังรอต่อ...")
     
     try:
@@ -232,10 +266,7 @@ except Exception as err:
 # โยนข้อมูลชุดล่าสุดของวันนี้เติมลงไป
 print(f"กำลังส่งข้อมูลชุดล่าสุดจำนวน {len(df)} แถว เข้าสู่ BigQuery ตาราง {full_table_path}...")
 df.to_gbq(
-    destination_table=table_id,
-    project_id=project_id,
-    if_exists='append',
-    progress_bar=False
+    destination_table=table_id, project_id=project_id, if_exists="append", progress_bar=False
 )
 
 print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! อัปเดตข้อมูลเป็นเวอร์ชันล่าสุดเรียบร้อยแล้วครับ")
