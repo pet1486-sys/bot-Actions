@@ -4,7 +4,16 @@ name: Run Data Bot
 on:
   schedule:
     - cron: '0 0 * * *' # 🕒 ตั้งเวลาให้บอทรันอัตโนมัติทุกวันตอนเที่ยงคืน (ตามเวลา UTC)
-  workflow_dispatch:     # 🔘 เพิ่มปุ่มกดให้คุณสามารถสั่งกดรันด้วยตัวเองแมนนวลได้จากหน้าเว็บ GitHub
+  workflow_dispatch:      # 🔘 ปุ่มกดรันแมนนวลเอง + รับค่าจากหน้าเว็บ
+    inputs:
+      manual_upload:
+        description: 'Manual File Upload Trigger'
+        required: false
+        default: 'false'
+      file_name:
+        description: 'File Name'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -41,11 +50,14 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # 5. สั่งรันสคริปต์ Python เพื่อดาวน์โหลดไฟล์และส่งเข้า BigQuery ทันที
+      # 5. สั่งรันสคริปต์ Python เพื่อดาวน์โหลดไฟล์และส่งเข้า BigQuery (รองรับ Manual Upload)
       - name: Run Python Script
         run: python silom_sku.py
+        env:
+          IS_MANUAL_UPLOAD: '${{ github.event.inputs.manual_upload }}'
+          MANUAL_FILE_NAME: '${{ github.event.inputs.file_name }}'
 
-      # 🌟 6. บันทึกและส่งไฟล์เวลาอัปเดตจาก BigQuery กลับเข้า GitHub Repo อัตโนมัติ
+      # 🌟 6. บันทึกและส่งไฟล์เวลาอัปเดตจาก BigQuery กลับเข้า GitHub Repo อัตโนมัติ (ขึ้นจุดเขียว)
       - name: Commit and Push Last Update Time
         run: |
           if [ -f sku_last_update.txt ]; then
