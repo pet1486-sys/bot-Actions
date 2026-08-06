@@ -4,7 +4,16 @@ name: Run Sales Data Bot
 on:
   schedule:
     - cron: '37 13 * * *' # 🕒 ตั้งเวลารันอัตโนมัติทุกวันตอน 14:00 UTC (ตรงกับ 21:00 น. เวลาประเทศไทย)
-  workflow_dispatch:     # 🔘 เพิ่มปุ่มกดรันแมนนวลเองได้จากหน้าเว็บ GitHub
+  workflow_dispatch:      # 🔘 ปุ่มกดรันแมนนวลเอง + รับค่าจากหน้าเว็บ
+    inputs:
+      manual_upload:
+        description: 'Manual File Upload Trigger'
+        required: false
+        default: 'false'
+      file_name:
+        description: 'File Name'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -36,11 +45,14 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # 5. สั่งรันสคริปต์ Python ตัวใหม่ (ยอดขาย)
+      # 5. สั่งรันสคริปต์ Python (รองรับทั้งระบบออโต้และ Manual Upload)
       - name: Run Python Script
         run: python silom_sales.py
+        env:
+          IS_MANUAL_UPLOAD: '${{ github.event.inputs.manual_upload }}'
+          MANUAL_FILE_NAME: '${{ github.event.inputs.file_name }}'
 
-      # 6. บันทึกและส่งไฟล์เวลาอัปเดตของยอดขายกลับเข้า GitHub Repo อัตโนมัติ
+      # 6. บันทึกและส่งไฟล์เวลาอัปเดตของยอดขายกลับเข้า GitHub Repo อัตโนมัติ (สร้างจุดเขียว)
       - name: Commit and Push Last Update Time
         run: |
           if [ -f sales_last_update.txt ]; then
