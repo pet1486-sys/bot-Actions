@@ -224,14 +224,13 @@ print("\n--- เริ่มกระบวนการส่งข้อมู�
 
 print(f"กำลังเปิดอ่านข้อมูลภายในไฟล์: {target_data_file}")
 
-# 1. แอบอ่านส่วน Header ของ Excel เพื่อดึงวันที่ในบรรทัดที่ 5 (From: 06 August 2026 ...)
+# 1. อ่านส่วน Header ของ Excel เพื่อดึงวันที่ในบรรทัดที่ 5 (From: 06 August 2026 ...)
 extracted_date_str = None
 try:
     df_raw = pd.read_excel(target_data_file, header=None, nrows=7)
     for row_idx in range(len(df_raw)):
         row_str = " ".join(df_raw.iloc[row_idx].dropna().astype(str))
         if "From" in row_str or "00:00:00" in row_str:
-            # ค้นหาข้อความวันที่ เช่น 06 August 2026
             import re
             date_match = re.search(r'(\d{1,2}\s+[A-Za-z]+\s+\d{4})', row_str)
             if date_match:
@@ -271,7 +270,6 @@ target_date_for_bq = None
 
 if 'วันที่' in df.columns and len(df) > 0:
     try:
-        # หากมีคอลัมน์ วันที่ และ เวลา
         if 'เวลา' in df.columns:
             df['Run_Date'] = pd.to_datetime(df['วันที่'].astype(str) + ' ' + df['เวลา'].astype(str), errors='coerce')
         else:
@@ -283,7 +281,6 @@ if 'วันที่' in df.columns and len(df) > 0:
     except Exception as e:
         print(f"⚠️ ไม่สามารถแปลงวันที่จากตารางได้: {e}")
 
-# หากแปลงจากตารางไม่ได้ ให้ใช้จาก Header B5 ที่แกะได้
 if not target_date_for_bq and extracted_date_str:
     try:
         parsed_dt = pd.to_datetime(extracted_date_str)
@@ -292,13 +289,11 @@ if not target_date_for_bq and extracted_date_str:
     except Exception:
         pass
 
-# หากยังดักไม่ได้จริงๆ ให้ใช้เวลาปัจจุบันเป็นทางเลือกสุดท้าย
 if not target_date_for_bq:
     th_time = datetime.utcnow() + timedelta(hours=7)
     target_date_for_bq = th_time.strftime('%Y-%m-%d')
     df['Run_Date'] = th_time.strftime('%Y-%m-%d %H:%M:%S')
 
-# ฟอร์แมตคอลัมน์ Run_Date ให้เป็น String รูปแบบ YYYY-MM-DD HH:MM:SS
 df['Run_Date'] = pd.to_datetime(df['Run_Date']).dt.strftime('%Y-%m-%d %H:%M:%S')
 
 
@@ -312,7 +307,6 @@ full_table_path = f"{project_id}.{table_id}"
 try:
     client = bigquery.Client(project=project_id)
     
-    # สั่งลบเฉพาะข้อมูลของวันที่ตรงกับในไฟล์ Excel
     delete_query = f"""
         DELETE FROM `{full_table_path}`
         WHERE DATE(Run_Date) = '{target_date_for_bq}';
@@ -324,7 +318,6 @@ try:
 except Exception as err:
     print(f"⚠️ ไม่สามารถลบข้อมูลเก่าได้: {str(err)}")
 
-# ส่งข้อมูลเข้า BigQuery
 print(f"กำลังส่งข้อมูลจำนวน {len(df)} แถว ของวันที่ {target_date_for_bq} เข้าสู่ BigQuery...")
 df.to_gbq(
     destination_table=table_id, project_id=project_id, if_exists="append", progress_bar=False
@@ -338,11 +331,16 @@ print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อ�
 # ==========================================================
 print("\n--- บันทึกเวลาอัปเดตลงไฟล์สำหรับหน้าเว็บ ---")
 try:
-    # เขียนวันที่จริงที่ดึงได้ลงไฟล์บันทึก เพื่อให้จุดเขียวบนหน้าเว็บย้อนหลังขึ้นตรงเป๊ะ
-    time_str = f"{target_date_for_bq} 23:59:59"
+    if target_date_for_bq:
+        time_str = f"{target_date_for_bq} 23:59:59"
+    else:
+        th_time = datetime.utcnow() + timedelta(hours=7)
+        time_str = th_time.strftime('%Y-%m-%d %H:%M:%S')
+
     with open("sales_last_update.txt", "w", encoding="utf-8") as f:
         f.write(time_str)
-    print(f"🎯 บันทึกเวลาสำเร็จ! จุดเขียวจะไปขึ้นที่วันที่: {target_date_for_bq}")
+        
+    print(f"🎯 บันทึกเวลาสำเร็จ! เวลาที่จะส่งให้หน้าเว็บปักจุดเขียวคือ: {time_str}")
 
 except Exception as e:
     print(f"⚠️ เกิดข้อผิดพลาดในการเขียนไฟล์เวลา: {str(e)}")
