@@ -23,7 +23,7 @@ for folder in [DOWNLOAD_DIR, SCREENSHOT_DIR]:
 
 file_path = os.path.join(DOWNLOAD_DIR, "Sales.xlsx")
 
-# 🌟 เช็กสถานะการสั่งงานว่าเป็นการ Manual Upload หรือไม่
+# เช็กสถานะการสั่งงานว่าเป็นการ Manual Upload หรือไม่
 IS_MANUAL = os.environ.get('IS_MANUAL_UPLOAD', '').lower() == 'true'
 MANUAL_FILE_NAME = os.environ.get('MANUAL_FILE_NAME', '')
 
@@ -35,7 +35,6 @@ print(f"🔍 ตรวจสอบโหมดการทำงาน: IS_MANUA
 if IS_MANUAL:
     print("\n📁 --- โหมด Manual Upload: ข้ามกระบวนการ Selenium/Silom POS ---")
     
-    # ค้นหาไฟล์ที่ผู้ใช้อัปโหลดเข้ามาผ่านหน้าเว็บ
     candidate_files = [
         MANUAL_FILE_NAME,
         "manual_sales_data.csv",
@@ -128,7 +127,6 @@ else:
         print("🎯 กำลังโหลดหน้ารายงานยอดขายตามรายละเอียดบิล...")
         time.sleep(8)
         
-        print("🧼 เริ่มกระบวนการเคลียร์หน้าจอ (ลบกล่องแชท Crisp)...")
         try:
             driver.execute_script("""
                 var crispElements = document.querySelectorAll(
@@ -137,18 +135,15 @@ else:
                 );
                 crispElements.forEach(function(el) { el.remove(); });
             """)
-            print("-> ลบกล่องแชท Crisp เรียบร้อย")
             time.sleep(1)
         except Exception:
             pass
 
-        print("🧼 เริ่มกระบวนการเคลียร์ป๊อปอัป (ซ่อนแถบคู่มือฝั่งขวา)...")
         try:
             driver.execute_script("""
                 document.querySelectorAll('.el-drawer__wrapper, .el-drawer, .v-modal').forEach(el => el.remove());
                 document.body.style.overflow = 'auto';
             """)
-            print("-> บังคับลบแถบคู่มือฝั่งขวาเรียบร้อย!")
             time.sleep(2)
         except Exception:
             pass
@@ -165,33 +160,25 @@ else:
             time.sleep(3) 
             alert = driver.switch_to.alert
             alert_text = alert.text
-            print(f"⚠️ เจอ Alert ของระบบ: {alert_text}")
             alert.accept() 
             
             if "ลองใหม่อีกครั้ง" in alert_text or "เตรียมไฟล์" in alert_text:
-                waiting_time = 60  
-                print(f"⏳ ระบบหลังบ้านยังไม่พร้อม... บอทจะหยุดรอ {waiting_time} วินาที...")
-                time.sleep(waiting_time)
-                
+                time.sleep(60)
                 driver.execute_script("""
                     document.querySelectorAll('.el-drawer__wrapper, .el-drawer, .v-modal').forEach(el => el.remove());
                     document.body.style.overflow = 'auto';
                 """)
                 time.sleep(2)
-                
                 export_button = driver.find_element(By.XPATH, "//*[contains(text(), 'ส่งออกไฟล์')]")
                 driver.execute_script("arguments[0].click();", export_button)
-                
                 try:
                     time.sleep(2)
                     alert2 = driver.switch_to.alert
-                    print(f"⚠️ เจอ Alert รอบสอง: {alert2.text}")
                     alert2.accept()
                 except:
-                    print("✅ รอบสองไม่เจอ Alert เพิ่มเติม")
-                    
+                    pass
         except Exception:
-            print("✅ ยิงคำสั่งดาวน์โหลดสำเร็จในรอบแรก!")
+            pass
 
         print("⏱ กำลังตรวจสอบโฟลเดอร์และรอไฟล์ดาวน์โหลดเข้าดิสก์...")
         downloaded = False
@@ -200,7 +187,6 @@ else:
             files = os.listdir(DOWNLOAD_DIR)
             valid_files = [f for f in files if not f.endswith('.crdownload') and f != '']
             if valid_files:
-                print(f"พบไฟล์ดาวน์โหลดในรอบที่ {i+1}: {valid_files}")
                 downloaded = True
                 break
                 
@@ -210,18 +196,15 @@ else:
                     driver.execute_script("arguments[0].click();", export_button)
                 except:
                     pass
-                    
-            print(f"รอบที่ {i+1}: ยังไม่พบไฟล์ กำลังรอต่อ...")
         
         files = os.listdir(DOWNLOAD_DIR)
         if downloaded and files:
             latest_file = max([os.path.join(DOWNLOAD_DIR, f) for f in files], key=os.path.getctime)
             if latest_file != file_path:
                 os.rename(latest_file, file_path)
-            print(f"เตรียมอัปโหลดไฟล์เสร็จสมบูรณ์ที่: {file_path}")
             target_data_file = file_path
         else:
-            raise FileNotFoundError(f"บอทหาไฟล์ Excel ที่ดาวน์โหลดไม่เจอ!")
+            raise FileNotFoundError("บอทหาไฟล์ Excel ที่ดาวน์โหลดไม่เจอ!")
 
     except Exception as e:
         print(f"เกิดข้อผิดพลาดในการทำงาน: {str(e)}")
@@ -235,13 +218,30 @@ else:
 
 
 # ==========================================================
-# ส่วนที่ 2: โค้ดส่งไฟล์จริงเข้า BigQuery ด้วย Pandas
+# ส่วนที่ 2: ดักจับวันที่และเวลาจริงจากภายในไฟล์ Excel
 # ==========================================================
 print("\n--- เริ่มกระบวนการส่งข้อมูลเข้า Google Cloud BigQuery ด้วย Pandas ---")
 
 print(f"กำลังเปิดอ่านข้อมูลภายในไฟล์: {target_data_file}")
 
-# รองรับทั้งไฟล์ CSV และ Excel (.xlsx/.xls)
+# 1. แอบอ่านส่วน Header ของ Excel เพื่อดึงวันที่ในบรรทัดที่ 5 (From: 06 August 2026 ...)
+extracted_date_str = None
+try:
+    df_raw = pd.read_excel(target_data_file, header=None, nrows=7)
+    for row_idx in range(len(df_raw)):
+        row_str = " ".join(df_raw.iloc[row_idx].dropna().astype(str))
+        if "From" in row_str or "00:00:00" in row_str:
+            # ค้นหาข้อความวันที่ เช่น 06 August 2026
+            import re
+            date_match = re.search(r'(\d{1,2}\s+[A-Za-z]+\s+\d{4})', row_str)
+            if date_match:
+                extracted_date_str = date_match.group(1)
+                print(f"🎯 ดักจับวันที่จาก Header บรรทัดที่ 5 สำเร็จ: {extracted_date_str}")
+                break
+except Exception as e:
+    print(f"⚠️ ไม่สามารถแกะวันที่จาก Header ได้: {e}")
+
+# 2. อ่านข้อมูลตารางจริงตั้งแต่บรรทัดที่ 8 ขึ้นไป
 if target_data_file.endswith('.csv'):
     try:
         df = pd.read_csv(target_data_file, header=7)
@@ -253,7 +253,7 @@ else:
     except Exception:
         df = pd.read_excel(target_data_file)
 
-print("กำลังตรวจสอบและลบแถวข้อความหมายเหตุท้ายตาราง...")
+# ลบแถวหมายเหตุท้ายตาราง
 df = df[~df.iloc[:, 0].astype(str).str.contains('\*\*\*\*|รวมสุทธิ', na=False)]
 df = df.dropna(how='all')
 
@@ -266,65 +266,83 @@ df.columns = (
     .str.replace(')', '')
 )
 
-# คำนวณเวลาไทยปัจจุบันสำหรับระบุวันเก็บข้อมูล
-th_time = datetime.utcnow() + timedelta(hours=7)
-df['Run_Date'] = th_time.strftime('%Y-%m-%d %H:%M:%S')
+# 3. สร้างคอลัมน์ Run_Date โดยอิงวันที่จริงในไฟล์
+target_date_for_bq = None
 
+if 'วันที่' in df.columns and len(df) > 0:
+    try:
+        # หากมีคอลัมน์ วันที่ และ เวลา
+        if 'เวลา' in df.columns:
+            df['Run_Date'] = pd.to_datetime(df['วันที่'].astype(str) + ' ' + df['เวลา'].astype(str), errors='coerce')
+        else:
+            df['Run_Date'] = pd.to_datetime(df['วันที่'], errors='coerce')
+            
+        first_valid_date = df['Run_Date'].dropna().iloc[0]
+        target_date_for_bq = first_valid_date.strftime('%Y-%m-%d')
+        print(f"📅 ดักจับวันที่จากคอลัมน์ตารางสำเร็จ: {target_date_for_bq}")
+    except Exception as e:
+        print(f"⚠️ ไม่สามารถแปลงวันที่จากตารางได้: {e}")
+
+# หากแปลงจากตารางไม่ได้ ให้ใช้จาก Header B5 ที่แกะได้
+if not target_date_for_bq and extracted_date_str:
+    try:
+        parsed_dt = pd.to_datetime(extracted_date_str)
+        target_date_for_bq = parsed_dt.strftime('%Y-%m-%d')
+        df['Run_Date'] = parsed_dt.strftime('%Y-%m-%d %H:%M:%S')
+    except Exception:
+        pass
+
+# หากยังดักไม่ได้จริงๆ ให้ใช้เวลาปัจจุบันเป็นทางเลือกสุดท้าย
+if not target_date_for_bq:
+    th_time = datetime.utcnow() + timedelta(hours=7)
+    target_date_for_bq = th_time.strftime('%Y-%m-%d')
+    df['Run_Date'] = th_time.strftime('%Y-%m-%d %H:%M:%S')
+
+# ฟอร์แมตคอลัมน์ Run_Date ให้เป็น String รูปแบบ YYYY-MM-DD HH:MM:SS
+df['Run_Date'] = pd.to_datetime(df['Run_Date']).dt.strftime('%Y-%m-%d %H:%M:%S')
+
+
+# ==========================================================
+# ส่วนที่ 3: ส่งข้อมูลเข้า BigQuery (สั่งลบเฉพาะวันที่ตรงกับในไฟล์)
+# ==========================================================
 table_id = "stock_data.sales_list"
 project_id = "northern-eon-470602-a2"
 full_table_path = f"{project_id}.{table_id}"
 
-# สั่งลบข้อมูลเก่าของวันนี้ออกจาก BigQuery ก่อนเพื่อเคลียร์ทาง
 try:
     client = bigquery.Client(project=project_id)
-    today_str = th_time.strftime('%Y-%m-%d')
     
+    # สั่งลบเฉพาะข้อมูลของวันที่ตรงกับในไฟล์ Excel
     delete_query = f"""
         DELETE FROM `{full_table_path}`
-        WHERE DATE(Run_Date) = '{today_str}';
+        WHERE DATE(Run_Date) = '{target_date_for_bq}';
     """
-    print(f"🧹 กำลังเคลียร์ข้อมูลเก่าของวันที่ {today_str} ใน BigQuery เพื่อป้องกันการบันทึกซ้ำ...")
+    print(f"🧹 กำลังเคลียร์ข้อมูลเก่าเฉพาะของวันที่ {target_date_for_bq} ใน BigQuery...")
     query_job = client.query(delete_query)
     query_job.result()
-    print("-> ลบข้อมูลรอบเดิมของวันนี้เรียบร้อยแล้ว!")
+    print(f"-> เคลียร์ข้อมูลเดิมของวันที่ {target_date_for_bq} เรียบร้อย!")
 except Exception as err:
     print(f"⚠️ ไม่สามารถลบข้อมูลเก่าได้: {str(err)}")
 
-# โยนข้อมูลชุดล่าสุดเติมลงไป
-print(f"กำลังส่งข้อมูลชุดล่าสุดจำนวน {len(df)} แถว เข้าสู่ BigQuery ตาราง {full_table_path}...")
+# ส่งข้อมูลเข้า BigQuery
+print(f"กำลังส่งข้อมูลจำนวน {len(df)} แถว ของวันที่ {target_date_for_bq} เข้าสู่ BigQuery...")
 df.to_gbq(
     destination_table=table_id, project_id=project_id, if_exists="append", progress_bar=False
 )
 
-print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! อัปเดตข้อมูลเป็นเวอร์ชันล่าสุดเรียบร้อยแล้วครับ")
+print(f"🎉 🎉 🎉 อัปโหลดสำเร็จ 100%! ข้อมูลของวันที่ {target_date_for_bq} ถูกบันทึกเรียบร้อยครับ")
 
 
 # ==========================================================
-# ส่วนที่ 3: ดึงเวลาอัปเดตล่าสุดจาก BigQuery และเซฟลงไฟล์ข้อความ
+# ส่วนที่ 4: บันทึกวันเวลาลงไฟล์ sales_last_update.txt (เพื่อให้จุดเขียวขึ้นตรงวัน)
 # ==========================================================
-print("\n--- เริ่มกระบวนการดึงเวลาแก้ไขล่าสุดจาก BigQuery เพื่อส่งให้หน้าเว็บ ---")
+print("\n--- บันทึกเวลาอัปเดตลงไฟล์สำหรับหน้าเว็บ ---")
 try:
-    client = bigquery.Client(project=project_id)
-    query = f"""
-        SELECT TIMESTAMP_MILLIS(last_modified_time) AS last_updated
-        FROM `{project_id}.stock_data.__TABLES__`
-        WHERE table_id = 'sales_list';
-    """
-    query_job = client.query(query)
-    results = query_job.result()
-    
-    for row in results:
-        utc_time = row.last_updated
-        thai_time = utc_time + timedelta(hours=7)
-        time_str = thai_time.strftime('%Y-%m-%d %H:%M:%S')
-        
-        with open("sales_last_update.txt", "w", encoding="utf-8") as f:
-            f.write(time_str)
-        print(f"🎯 ดึงข้อมูลสำเร็จ! เวลาแก้ไขจริงใน BigQuery คือ: {time_str} น. (บันทึกลลงไฟล์แล้ว)")
-
-except Exception as e:
-    # หากดึงจาก BigQuery ไม่สำเร็จ ให้เขียนเวลาไทยปัจจุบันลงไฟล์โดยตรงเพื่อไม่ให้จุดเขียวพลาด
-    time_str = th_time.strftime('%Y-%m-%d %H:%M:%S')
+    # เขียนวันที่จริงที่ดึงได้ลงไฟล์บันทึก เพื่อให้จุดเขียวบนหน้าเว็บย้อนหลังขึ้นตรงเป๊ะ
+    time_str = f"{target_date_for_bq} 23:59:59"
     with open("sales_last_update.txt", "w", encoding="utf-8") as f:
         f.write(time_str)
-    print(f"⚠️ เขียนเวลาปัจจุบันลงไฟล์สำรอง: {time_str} น.")
+    print(f"🎯 บันทึกเวลาสำเร็จ! จุดเขียวจะไปขึ้นที่วันที่: {target_date_for_bq}")
+
+except Exception as e:
+    print(f"⚠️ เกิดข้อผิดพลาดในการเขียนไฟล์เวลา: {str(e)}")
