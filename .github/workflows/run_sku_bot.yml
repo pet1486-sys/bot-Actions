@@ -17,20 +17,21 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # ใช้ระบบปฏิบัติการ Linux ในการรันบอทชั่วคราว
+    # 🛠️ จุดแก้ไขที่ 1: เปลี่ยนจาก ubuntu-latest เป็น ubuntu-24.04 หรือ ubuntu-22.04 เพื่อป้องกันปัญหา Python 3.9 หายไป
+    runs-on: ubuntu-24.04
     
     steps:
-      # 1. ดึงโค้ดทั้งหมดจาก Repository มาเตรียมไว้บนบอท
+      # 🛠️ จุดแก้ไขที่ 2: อัปเดต checkout เป็น v4
       - name: Checkout repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2. ติดตั้งระบบ Python รุ่น 3.9 บนบอท
+      # 🛠️ จุดแก้ไขที่ 3: อัปเดต setup-python เป็น v5
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
 
-      # 3. ติดตั้ง Chrome Browser และ Library พร้อมอัปเดตเวอร์ชันล่าสุด (จุดแก้ไขป้องกันบั๊กคลาสเก่า)
+      # 3. ติดตั้ง Chrome Browser และ Library พร้อมอัปเดตเวอร์ชันล่าสุด
       - name: Install Chrome and dependencies
         run: |
           # 🌐 ติดตั้ง Chrome Browser สำหรับ Selenium
@@ -44,9 +45,9 @@ jobs:
           # ติดตั้ง library อื่นๆ ที่มีในไฟล์ของคุณเพิ่มเติม
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # 4. ดึง JSON Key จาก GitHub Secrets มายืนยันตัวตนกับ Google Cloud
+      # 🛠️ จุดแก้ไขที่ 4: อัปเดต Google Auth เป็น v2
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
